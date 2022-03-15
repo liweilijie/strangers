@@ -6,3 +6,28 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.56"
+askama = "0.11.1"
+axum = "0.4.8"
+tower-http = { version = "0.2", features = ["fs"] }
+bcrypt = "0.12.0"
+chrono = "0.4.19"
+config = "0.12.0"
+dotenv = "0.15.0"
+rand = "0.8.5"
+regex = "1.5.5"
+reqwest = { version = "0.11.10", features = ["json"] }
+serde = { version = "1.0.136", features = ["derive"] }
+serde_json = "1.0.79"
+thiserror = "1.0.30"
+tokio = { version = "1.17.0", features = ["full"] }
+tracing = "0.1.32"
+tracing-subscriber = { version = "0.3.9", features = ["env-filter"] }
+# postgres
+tokio-postgres = "0.7"
+tokio-pg-mapper = "0.2"
+tokio-pg-mapper-derive = "0.2"
+deadpool-postgres = { version = "0.10", features = ["serde"] }
+# redis
+redis = { version = "0.21", features = ["tokio-comp", "aio"] }
+uuid =  {  version = "0.8", features = ["v4", "serde"]}
