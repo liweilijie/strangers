@@ -1,8 +1,16 @@
+use axum::extract::Extension;
+use axum::http::StatusCode;
+use axum::routing::get_service;
+use axum::{AddExtensionLayer, Router};
+use std::net::SocketAddr;
 use std::sync::Arc;
+use strangers::handler::backend;
+use strangers::model::AppState;
+use tower::ServiceBuilder;
+use tower_http::services::ServeDir;
 use tracing::{debug, info};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use strangers::model::AppState;
 
 #[tokio::main]
 async fn main() {
@@ -16,7 +24,7 @@ async fn main() {
     dotenv::dotenv().ok();
     let cfg = strangers::config::Config::from_env().unwrap();
     let pool = cfg.pg.create_pool(None, tokio_postgres::NoTls).unwrap();
-    let rdc = redis::Client::open(cfg.redis.dsn).unwrap();
+    let rdc = redis::Client::open(&*cfg.redis.dsn).unwrap(); // TODO: 为什么是 &*
 
     debug!("cfg: {:#?}", cfg);
     info!("web server listening on http://{}", &cfg.web.addr);
@@ -28,4 +36,21 @@ async fn main() {
         hcap_cfg: cfg.hcaptcha,
     });
 
+    let backend_router = backend::routers();
+    let static_serve = get_service(ServeDir::new("static")).handle_error(|err| async move {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("载入静态资源出错: {}", err),
+        )
+    });
+
+    let app = Router::new()
+        .nest("/static", static_serve)
+        .nest("/admin", backend_router)
+        .layer(ServiceBuilder::new().layer(Extension(state)));
+
+    axum::Server::bind(&cfg.web.addr.parse::<SocketAddr>().unwrap())
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
 }

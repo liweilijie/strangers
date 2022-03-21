@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AXUM.RS后台管理</title>
+
+    <!-- Google Font: Source Sans Pro -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback"
+    />
+    <!-- Font Awesome -->
+    <link
+      rel="stylesheet"
+      href="/static/adminlte/plugins/fontawesome-free/css/all.min.css"
+    />
+    <!-- Theme style -->
+    <link rel="stylesheet" href="/static/adminlte/dist/css/adminlte.min.css" />
+  </head>
+  <body class="hold-transition sidebar-mini">
+    <!-- Site wrapper -->
+    <div class="wrapper">
+      <!-- Navbar -->
+      <nav class="main-header navbar navbar-expand navbar-white navbar-light">
+        <!-- Left navbar links -->
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" data-widget="pushmenu" href="#" role="button"
+              ><i class="fas fa-bars"></i
+            ></a>
+          </li>
+        </ul>
+
+        <!-- Right navbar links -->
+        <ul class="navbar-nav ml-auto">
+          <!-- Navbar Search -->
+
+          <!-- Messages Dropdown Menu -->
+          <!-- Notifications Dropdown Menu -->
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              data-widget="fullscreen"
+              href="javascript:;"
+              role="button"
+            >
+              <i class="fas fa-expand-arrows-alt"></i>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" role="button" href="/logout">
+              <i class="fa fa-sign-out"></i> 退出
+            </a>
+          </li>
+        </ul>
+      </nav>
+      <!-- /.navbar -->
+
+      <!-- Main Sidebar Container -->
+      <aside class="main-sidebar sidebar-dark-primary elevation-4">
+        <!-- Brand Logo -->
+        <a href="/admin" class="brand-link bg-success">
+          <img
+            src="/static/img/logo.svg"
+            alt="AXUM.RS后台管理"
+            class="brand-image img-circle elevation-3"
+            style="opacity: 0.8"
+          />
+          <span class="brand-text font-weight-light">AXUM.RS</span>
+        </a>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+          <!-- Sidebar Menu -->
+          <nav class="mt-2">
+            <ul
+              class="nav nav-pills nav-sidebar flex-column"
+              data-widget="treeview"
+              role="menu"
+              data-accordion="false"
+            >
+              <li class="nav-item">
+                <a href="/admin" class="nav-link">
+                  <i class="nav-icon fas fa-tachometer-alt"></i>
+                  <p>主控台</p>
+                </a>
+              </li>
+              <!-- nav-item -->
+              <li class="nav-item">
+                <a href="javascript:;" class="nav-link">
+                  <i class="nav-icon fas fa-chart-pie"></i>
+                  <p>
+                    专题管理
+                    <i class="right fas fa-angle-left"></i>
+                  </p>
+                </a>
+                <ul class="nav nav-treeview">
+                  <li class="nav-item">
+                    <a href="/admin/subject" class="nav-link">
+                      <i class="far fa-circle nav-icon"></i>
+                      <p>专题列表</p>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="/admin/subject/add" class="nav-link">
+                      <i class="far fa-circle nav-icon"></i>
+                      <p>添加专题</p>
+                    </a>
+                  </li>
+                </ul>
+              </li>
+              <!-- /nav-item -->
+              <!-- nav-item -->
+              <li class="nav-item">
+                <a href="javascript:;" class="nav-link">
+                  <i class="nav-icon fas fa-book"></i>
+                  <p>
+                    文章管理
+                    <i class="right fas fa-angle-left"></i>
+                  </p>
+                </a>
+                <ul class="nav nav-treeview">
+                  <li class="nav-item">
+                    <a href="/admin/topic" class="nav-link">
+                      <i class="far fa-circle nav-icon"></i>
+                      <p>文章列表</p>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="/admin/topic/add" class="nav-link">
+                      <i class="far fa-circle nav-icon"></i>
+                      <p>添加文章</p>
+                    </a>
+                  </li>
+                </ul>
+              </li>
+              <!-- /nav-item -->
+              <!-- nav-item -->
+              <li class="nav-item">
+                <a href="javascript:;" class="nav-link">
+                  <i class="nav-icon fas fa-tag"></i>
+                  <p>
+                    标签管理
+                    <i class="right fas fa-angle-left"></i>
+                  </p>
+                </a>
+                <ul class="nav nav-treeview">
+                  <li class="nav-item">
+                    <a href="/admin/tag" class="nav-link">
+                      <i class="far fa-circle nav-icon"></i>
+                      <p>标签列表</p>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="/admin/tag/add" class="nav-link">
+                      <i class="far fa-circle nav-icon"></i>
+                      <p>添加标签</p>
+                    </a>
+                  </li>
+                </ul>
+              </li>
+              <!-- /nav-item -->
+              <!-- nav-item -->
+              <li class="nav-item">
+                <a href="javascript:;" class="nav-link">
+                  <i class="nav-icon fas fa-users"></i>
+                  <p>
+                    账号管理
+                    <i class="right fas fa-angle-left"></i>
+                  </p>
+                </a>
+                <ul class="nav nav-treeview">
+                  <li class="nav-item">
+                    <a href="/admin/admin" class="nav-link">
+                      <i class="far fa-circle nav-icon"></i>
+                      <p>账号列表</p>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="/admin/admin/add" class="nav-link">
+                      <i class="far fa-circle nav-icon"></i>
+                      <p>添加账号</p>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="/logout" class="nav-link">
+                      <i class="far fa-circle nav-icon"></i>
+                      <p>退出登录</p>
+                    </a>
+                  </li>
+                </ul>
+              </li>
+              <!-- /nav-item -->
+            </ul>
+          </nav>
+          <!-- /.sidebar-menu -->
+        </div>
+        <!-- /.sidebar -->
+      </aside>
+
+      <!-- Content Wrapper. Contains page content -->
+      <div class="content-wrapper">
+        <!-- Content Header (Page header) -->
+        <section class="content-header">
+          <div class="container-fluid">
+            <div class="row mb-2">
+              <div class="col-sm-6">
+                <h1>{% block title %}标题{% endblock %}</h1>
+              </div>
+              <div class="col-sm-6">
+                <ol class="breadcrumb float-sm-right">
+                  <li class="breadcrumb-item"><a href="/admin">后台管理</a></li>
+                  <li class="breadcrumb-item">
+                    <a href="/admin/{% block parent_url %}{% endblock %}"
+                      >{% block parent_title %}父级标题{% endblock %}</a
+                    >
+                  </li>
+                  <li class="breadcrumb-item active">
+                    {% block title %}标题{% endblock %}
+                  </li>
+                </ol>
+              </div>
+            </div>
+          </div>
+          <!-- /.container-fluid -->
+        </section>
+
+        <!-- Main content -->
+        <section class="content">
+          <!-- Default box -->
+          <div class="card">
+            {%block toolbar %}{%endblock %}
+            <div class="card-body">
+              {%block alert%}{%endblock %} {% block content %} 在此输入内容 {%
+              endblock %}
+            </div>
+            <!-- /.card-body -->
+            {%block pagination%}{%endblock %}
+          </div>
+          <!-- /.card -->
+        </section>
+        <!-- /.content -->
+      </div>
+      <!-- /.content-wrapper -->
+
+      <footer class="main-footer text-center text-sm text-muted">
+        Copyright &copy; 2021-present
+        <a href="https://axum.rs" target="_blank" class="text-reset">AXUM.RS</a
+        >. All rights reserved.
+      </footer>
+
+      <!-- Control Sidebar -->
+      <aside class="control-sidebar control-sidebar-dark">
+        <!-- Control sidebar content goes here -->
+      </aside>
+      <!-- /.control-sidebar -->
+    </div>
+    <!-- ./wrapper -->
+
+    <!-- jQuery -->
+    <script src="/static/adminlte/plugins/jquery/jquery.min.js"></script>
+    <!-- Bootstrap 4 -->
+    <script src="/static/adminlte/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <!-- AdminLTE App -->
+    <script src="/static/adminlte/dist/js/adminlte.min.js"></script>
+    <script src="/static/backend/menu.js"></script>
+  </body>
+</html>

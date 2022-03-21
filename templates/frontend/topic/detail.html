@@ -1,0 +1,89 @@
+{% extends "../base.html" %}
+{%block title %} {{ topic.title }} {%endblock%}
+{%block parent_title %}{{topic.subject_name}}{%endblock%}
+{%block parent_url%}/subject/{{topic.subject_slug}}{%endblock%}
+{%block content %}
+    <div class="card">
+        <div class="card-header">
+            <div class="text-muted text-sm">
+                浏览：{{ topic.hit + 1 }} 时间：{{ topic.dateline() }} 作者：{{ topic.author }} 来源：{{ topic.src }}
+            </div>
+        </div>
+        <div class="card-body axumrs-detail" style="min-height:30em">
+            {{ topic.html|safe }} 
+        </div>
+        <div class="card-footer">
+            <div class="row">
+                <div class="col">
+                    <a href="/subject/{{topic.subject_slug}}" class="btn btn-outline-secondary btn-xs">
+                        <i class="fas fa-cube"></i>
+                        {{ topic.subject_name }}
+                    </a>
+                </div>
+                <div class="col">
+                    <div class="text-right text-sm">
+                        {% for tag in topic.tag_names %}
+                        <a class="badge  topic-tag" href="/tag/{{tag}}">{{tag}}</a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{%endblock%}
+{% block css%}
+    <link rel="stylesheet" href="/static/highlight.js/default.min.css" />
+{%endblock%}
+{%block js%}
+<script src="/static/highlight.js/highlight.min.js"></script>
+<script>
+    $(function(){
+        const cls = [ 'info', 'success', 'warning', 'danger'];
+        const clsLen = cls.length;
+        $('.topic-tag').each(function(idx, ele) {
+            const clsName = `badge-${cls[idx%clsLen]}`;
+            $(ele).addClass(clsName);
+        });
+    });
+    hljs.highlightAll();
+</script>
+<script>
+    {% for uuid in uuids %}
+    function get_procted_content_{{uuid}}(response) {
+        let item =  $('#hcaptcha-{{uuid}}');
+        item.html(`<div class="text-center">
+            <div class="spinner-grow text-info" role="status">
+            <span class="sr-only">请稍等……</span>
+            </div>
+            </div>`);
+        get_procted_content('{{uuid}}', response);
+    }
+    {%endfor%}
+    function get_procted_content(id, response) {
+        $.post('/topic/get_procted_content', {id: id, hcaptcha_response: response}, function(data) {
+            let item =  $('#hcaptcha-' + id);
+            if(data && data.tag && data.content) {
+                let html = `<${data.tag} id="procted_content_${id}" style="border:5px solid #17a2b8">${data.content}</${data.tag}>`;
+                item.after(html);
+                item.remove();
+                if (data.tag === 'pre'){
+                    hljs.highlightElement($(`#procted_content_${id}`)[0]);
+
+                }
+           for(let i = 0; i<5;i++){
+               $(`#procted_content_${id}`).animate({borderWidth:"-=1px"}, 'slow');
+           }
+                            $('.axumrs-content  img').each(function(){
+                                        $(this).addClass('img-fluid');
+                                    });
+                            $('.axumrs-content table').each(function(){
+                                        $(this).addClass('table').addClass('table-striped').addClass('my-3');
+                                    });
+       } else {
+               item.html('<div class="text-danger py-3">获取内容失败，请刷新页面重试。</div>');
+        }
+    });
+}
+</script>
+<script src="https://js.hcaptcha.com/1/api.js" async defer></script>
+{%endblock%}

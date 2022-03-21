@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="{%block title %}{%endblock%}{%block parent_title%}{%endblock%}AXUM中文网为你提供了企业级axum Web开发中所需要的大部分知识。从基础知识到企业级项目的开发，都有完整的系列教程。更难得的是，除了文字教程，我们还录制了配套的视频教程，方便你以多种形式进行学习。 "
+    />
+    <meta name="author" content="axum.rs (team@axum.rs)" />
+    <meta
+      name="keyword"
+      content="{%block title %}{%endblock%},{%block parent_title%}{%endblock%},axum,企业开发,教程,视频教程,axum.rs"
+    />
+    <link rel="icon" href="/static/img/logo.svg" type="image/svg+xml" />
+    <link rel="alternate icon" href="/static/img/logo.png" type="image/png" />
+    <meta
+      property="og:title"
+      content="AXUM中文网 - 带你使用 axum 构建企业应用 - axum.rs"
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/static/img/logo.png" />
+    <meta property="og:url" content="https://axum.rs/" />
+    <meta
+      property="og:description"
+      content="{%block title%}{%endblock%}AXUM中文网为你提供了企业级axum Web开发中所需要的大部分知识。从基础知识到企业级项目的开发，都有完整的系列教程。更难得的是，除了文字教程，我们还录制了配套的视频教程，方便你以多种形式进行学习。"
+    />
+    <meta property="og:site_name" content="AXUM中文网" />
+    <title>
+      {%block title%}{%endblock%} - {%block parent_title%}{%endblock%} -
+      AXUM中文网
+    </title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.font.im/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback"
+    />
+    <!-- Font Awesome Icons -->
+    <link
+      rel="stylesheet"
+      href="/static/adminlte/plugins/fontawesome-free/css/all.min.css"
+    />
+    <!-- Theme style -->
+    <link rel="stylesheet" href="/static/adminlte/dist/css/adminlte.min.css" />
+    {%block css%} {%endblock%}
+  </head>
+  <body class="hold-transition layout-top-nav">
+    <div class="wrapper">
+      <!-- Navbar -->
+      <nav
+        class="main-header navbar navbar-expand-md navbar-light navbar-white"
+      >
+        <div class="container">
+          <a href="/" class="navbar-brand">
+            <img
+              src="/static/img/logo.svg"
+              alt="AXUM中文网"
+              class="brand-image img-circle elevation-3"
+              style="opacity: 0.8"
+            />
+            <span class="brand-text font-weight-light">AXUM中文网</span>
+          </a>
+
+          <button
+            class="navbar-toggler order-1"
+            type="button"
+            data-toggle="collapse"
+            data-target="#navbarCollapse"
+            aria-controls="navbarCollapse"
+            aria-expanded="false"
+            aria-label="Toggle navigation"
+          >
+            <span class="navbar-toggler-icon"></span>
+          </button>
+
+          <!-- Right navbar links -->
+          <!--div class="order-1 order-md-3 navbar-nav navbar-no-expand ml-auto"-->
+          <div class="collapse navbar-collapse order-1 order-md-1  justify-content-end" id="navbarCollapse">
+            <ul class="navbar-nav">
+              <li class="nav-item">
+                <a href="/" class="nav-link">首页</a>
+              </li>
+              <li class="nav-item">
+                <a href="/subject" class="nav-link">专题</a>
+              </li>
+              <li class="nav-item">
+                <a href="/topic" class="nav-link">文章</a>
+              </li>
+              <li class="nav-item">
+                <a href="/tag" class="nav-link">标签</a>
+              </li>
+              <li class="nav-item">
+                <a href="/about" class="nav-link">关于</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+      <!-- /.navbar -->
+
+      <!-- Content Wrapper. Contains page content -->
+      <div class="content-wrapper">
+        <!-- Content Header (Page header) -->
+        <div class="content-header">
+          <div class="container">
+            <div class="row mb-2">
+              <div class="col-sm-6">
+                <h1 class="m-0">{%block title%}{%endblock%}</h1>
+              </div>
+              <!-- /.col -->
+              <div class="col-sm-6">
+                <ol class="breadcrumb float-sm-right">
+                  <li class="breadcrumb-item"><a href="/">AXUM中文网</a></li>
+                  <li class="breadcrumb-item">
+                    <a href="{%block parent_url%}{%endblock%}"
+                      >{%block parent_title%}{%endblock%}</a
+                    >
+                  </li>
+                  <li class="breadcrumb-item active">
+                    {%block title%}{%endblock%}
+                  </li>
+                </ol>
+              </div>
+              <!-- /.col -->
+            </div>
+            <!-- /.row -->
+          </div>
+          <!-- /.container-fluid -->
+        </div>
+        <!-- /.content-header -->
+
+        <!-- Main content -->
+        <div class="content">
+          <div class="container axumrs-content">
+            {% block content %} 在此输入内容 {%endblock %}
+          </div>
+          <!-- /.container-fluid -->
+        </div>
+        <!-- /.content -->
+      </div>
+      <!-- /.content-wrapper -->
+
+      <!-- Main Footer -->
+      <footer class="main-footer text-sm text-muted">
+        <!-- To the right -->
+        <div class="float-right d-none d-sm-inline">
+          本站技术栈：Rust, AXUM, PostgreSQL, Redis, AdminLTE.
+          <a href="https://github.com/axumrs/axum-rs" target="_blank" class="text-reset">源码</a>
+        </div>
+        <!-- Default to the left -->
+        Copyright &copy; 2021-present
+        <a href="https://axum.rs" class="text-reset">AXUM.RS</a>. All rights reserved.
+      </footer>
+    </div>
+    <!-- ./wrapper -->
+
+    <!-- REQUIRED SCRIPTS -->
+
+    <!-- jQuery -->
+    <script src="/static/adminlte/plugins/jquery/jquery.min.js"></script>
+    <!-- Bootstrap 4 -->
+    <script src="/static/adminlte/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <!-- AdminLTE App -->
+    <script src="/static/adminlte/dist/js/adminlte.min.js"></script>
+    <script>
+        $(function(){
+            let url = location.pathname;
+            $('.navbar-nav > .nav-item').each(function(){
+                let item =  $(this).find('a');
+                if(item.attr('href') === url) {
+                    item.addClass('active');
+                    return;
+                }
+            });
+        });
+        $(function(){
+            $('.axumrs-content  img').each(function(){
+                $(this).addClass('img-fluid');
+            });
+            $('.axumrs-content table').each(function(){
+                $(this).addClass('table').addClass('table-striped').addClass('my-3');
+            });
+            $('.axumrs-detail a').each(function(){
+                $(this).attr('target', '_blank');
+            });
+        });
+    </script>
+    {%block js%}{%endblock %}
+  </body>
+</html>

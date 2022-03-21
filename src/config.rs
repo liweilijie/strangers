@@ -52,7 +52,7 @@ impl Config {
 }
 
 mod tests {
-    use super::*;
+    use super::Config;
 
     #[test]
     fn test_config() {
