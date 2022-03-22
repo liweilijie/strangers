@@ -15,7 +15,7 @@ pub struct RedisConfig {
     pub dsn: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct SessionConfig {
     pub prefix: String,
     pub id_name: String,
@@ -43,7 +43,7 @@ pub struct Config {
 impl Config {
     // https://github.com/mehcode/config-rs/blob/master/examples/hierarchical-env/settings.rs
     pub fn from_env() -> Result<Self, config::ConfigError> {
-        let mut cfg = config::Config::builder()
+        let cfg = config::Config::builder()
             .add_source(config::Environment::default())
             .build()?;
 
@@ -52,6 +52,7 @@ impl Config {
 }
 
 mod tests {
+    #[allow(unused_imports)]
     use super::Config;
 
     #[test]

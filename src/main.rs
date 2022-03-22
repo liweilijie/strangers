@@ -1,10 +1,10 @@
 use axum::extract::Extension;
 use axum::http::StatusCode;
-use axum::routing::get_service;
-use axum::{AddExtensionLayer, Router};
+use axum::routing::{get, get_service};
+use axum::Router;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use strangers::handler::backend;
+use strangers::handler::{auth, backend};
 use strangers::model::AppState;
 use tower::ServiceBuilder;
 use tower_http::services::ServeDir;
@@ -47,6 +47,7 @@ async fn main() {
     let app = Router::new()
         .nest("/static", static_serve)
         .nest("/admin", backend_router)
+        .route("/login", get(auth::admin_login_ui).post(auth::admin_login))
         .layer(ServiceBuilder::new().layer(Extension(state)));
 
     axum::Server::bind(&cfg.web.addr.parse::<SocketAddr>().unwrap())

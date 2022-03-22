@@ -39,4 +39,4 @@ target/
 
 # ctags
 **/*.vi
-.env
+# .env
