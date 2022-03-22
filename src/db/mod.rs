@@ -1,4 +1,5 @@
 pub mod admin;
+pub mod medicinal;
 pub mod pagination;
 pub mod select_stmt;
 

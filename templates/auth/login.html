@@ -64,7 +64,7 @@
                 </div>
               </div>
             </div>
-            <div class="h-captcha" data-sitekey="{{ site_key }}"></div>
+<!--            <div class="h-captcha" data-sitekey="{{ site_key }}"></div>-->
             <div class="row">
               <!-- /.col -->
               <div class="col-4 offset-8">
@@ -89,17 +89,17 @@
     <!-- AdminLTE App -->
     <script src="/static/adminlte/dist/js/adminlte.min.js"></script>
     <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
-    <script>
-      $(function () {
-        $("#frmLogin").submit(function () {
-          let response = $("[name=h-captcha-response]").val();
-          if (!response) {
-            alert("请完成人机验证");
-            return false;
-          }
-          $("#hcaptcha_response").val(response);
-        });
-      });
-    </script>
+<!--    <script>-->
+<!--      $(function () {-->
+<!--        $("#frmLogin").submit(function () {-->
+<!--          let response = $("[name=h-captcha-response]").val();-->
+<!--          if (!response) {-->
+<!--            alert("请完成人机验证");-->
+<!--            return false;-->
+<!--          }-->
+<!--          $("#hcaptcha_response").val(response);-->
+<!--        });-->
+<!--      });-->
+<!--    </script>-->
   </body>
 </html>

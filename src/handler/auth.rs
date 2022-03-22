@@ -1,9 +1,10 @@
 use crate::db::admin;
 use crate::error::AppError;
-use crate::handler::helper::{get_client, log_error, render};
+use crate::handler::helper::{get_client, get_cookie, log_error, render};
 use crate::handler::redirect::redirect_with_cookie;
 use crate::html::auth::LoginTemplate;
 use crate::model::{AdminSession, AppState};
+use crate::session::gen_redis_key;
 use crate::{form, hcaptcha, password, rdb, session, Result};
 use axum::extract::{Extension, Form};
 use axum::http::{HeaderMap, StatusCode};
@@ -31,7 +32,8 @@ pub async fn admin_login(
     )
     .await?;
     if !is_valid {
-        return Err(AppError::auth_error("人机验证失败"));
+        debug!("hcaptcha verification failed");
+        // return Err(AppError::auth_error("人机验证失败"));
     }
     let client = get_client(&state, handler_name).await?;
     let login_admin = admin::find(&client, &login.username)
@@ -53,6 +55,7 @@ pub async fn admin_login(
     });
     let data = data.to_string();
     debug!("data: {:?}", data);
+    // data: "{\"dateline\":1647955504,\"id\":1,\"is_sys\":true,\"password\":\"$2b$12$QW8Lmf0gvsb1xtRJLxJxzea2M2p5Pxx1LrmPuVzria5obcY8u890C\",\"username\":\"wgr\"}"
     let session::GeneratedKey {
         id,
         cookie_key,
@@ -62,8 +65,23 @@ pub async fn admin_login(
         "id: {:?}, cookie_key: {:?}, redis_key: {:?}",
         id, cookie_key, redis_key
     );
+    // id: "4d8e927e7dc44ef696351ec59438f5ee", cookie_key: "axumrs_session", redis_key: "axumrs:session:4d8e927e7dc44ef696351ec59438f5ee"
     rdb::set(&state.rdc, &redis_key, &data, cfg.expired).await?;
     // .map_err(AppError::form)?; // TODO:
     let cookie = format!("{}={}", cookie_key, id);
     redirect_with_cookie("/admin", Some(&cookie))
+}
+
+pub async fn admin_logout(
+    Extension(state): Extension<Arc<AppState>>,
+    headers: HeaderMap,
+) -> Result<(StatusCode, HeaderMap, ())> {
+    let cfg = state.sess_cfg.clone();
+    let cookie = get_cookie(&headers, &cfg.id_name);
+    if let Some(val) = cookie {
+        let redis_key = gen_redis_key(&cfg, &val);
+        rdb::del(&state.rdc, &redis_key).await?;
+    }
+    let cookie_logout = format!("{}=", &cfg.id_name);
+    redirect_with_cookie("/login", Some(&cookie_logout))
 }

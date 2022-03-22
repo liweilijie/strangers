@@ -1,10 +1,11 @@
-use axum::extract::Extension;
+use axum::extract::{extractor_middleware, Extension};
 use axum::http::StatusCode;
 use axum::routing::{get, get_service};
 use axum::Router;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use strangers::handler::{auth, backend};
+use strangers::middleware::admin_auth::Auth;
 use strangers::model::AppState;
 use tower::ServiceBuilder;
 use tower_http::services::ServeDir;
@@ -36,7 +37,7 @@ async fn main() {
         hcap_cfg: cfg.hcaptcha,
     });
 
-    let backend_router = backend::routers();
+    let backend_router = backend::routers().layer(extractor_middleware::<Auth>());
     let static_serve = get_service(ServeDir::new("static")).handle_error(|err| async move {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -48,6 +49,7 @@ async fn main() {
         .nest("/static", static_serve)
         .nest("/admin", backend_router)
         .route("/login", get(auth::admin_login_ui).post(auth::admin_login))
+        .route("/logout", get(auth::admin_logout))
         .layer(ServiceBuilder::new().layer(Extension(state)));
 
     axum::Server::bind(&cfg.web.addr.parse::<SocketAddr>().unwrap())

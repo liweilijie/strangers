@@ -34,3 +34,14 @@ pub struct Admin {
 pub struct AdminID {
     pub id: i32,
 }
+
+#[derive(PostgresMapper)]
+#[pg_mapper(table = "medicinal")]
+pub struct MedicinalList {
+    pub id: i32,
+    pub category: String,
+    pub name: String,
+    pub batch_number: String,
+    pub count: i32,
+    pub validity: chrono::NaiveDate,
+}

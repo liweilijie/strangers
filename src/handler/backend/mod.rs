@@ -1,4 +1,5 @@
 pub mod index;
+pub mod medicinal;
 
 use crate::error::AppError;
 use crate::handler::helper::get_cookie;
@@ -11,7 +12,13 @@ use axum::Router;
 use tracing::{debug, error};
 
 pub fn routers() -> Router {
-    Router::new().route("/", get(index::index))
+    Router::new()
+        .route("/", get(index::index))
+        .route("/medicinal", get(medicinal::index))
+        .route(
+            "/medicinal/add",
+            get(medicinal::add).post(medicinal::add_action),
+        )
 }
 
 pub async fn get_logined_admin(
