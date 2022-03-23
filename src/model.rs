@@ -45,6 +45,7 @@ pub struct MedicinalList {
     pub batch_number: String,
     pub count: String,
     pub validity: chrono::NaiveDate,
+    pub is_del: bool,
 }
 
 #[derive(PostgresMapper)]

@@ -11,6 +11,8 @@
             <th>药品批号</th>
             <th>药品数量</th>
             <th>有效期</th>
+            <th>状态</th>
+            <th>操作</th>
         </tr>
     </thead>
     {% for row in list.data %}
@@ -20,6 +22,21 @@
         <td> {{ row.batch_number }}</td>
         <td> {{ row.count }}</td>
         <td> {{ row.validity }}</td>
+        <td>
+            {% if row.is_del %}
+            <span class="badge badge-danger">已删除</span>
+            {% else %}
+            <span class="badge badge-success">正常</span>
+            {% endif %}
+        </td>
+        <td>
+            <a href="/admin/medicinal/edit/{{row.id}}" class="btn btn-primary btn-xs"><i class="fa fa-pen"></i> 修改</a>
+            {% if row.is_del %}
+            <a href="/admin/medicinal/restore/{{row.id}}" class="btn btn-success btn-xs" onclick="if(!confirm('确定恢复')) return false"><i class="fa fa-reply"></i> 恢复</a>
+            {% else %}
+            <a href="/admin/medicinal/del/{{row.id}}" class="btn btn-danger btn-xs" onclick="if(!confirm('确定删除')) return false"><i class="fa fa-trash"></i> 删除</a>
+            {% endif %}
+        </td>
     </tr>
     {% endfor %}
 </table>

@@ -40,3 +40,4 @@ target/
 # ctags
 **/*.vi
 # .env
+/upload

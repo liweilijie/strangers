@@ -29,9 +29,9 @@ pub async fn select(
 ) -> Result<Pagination<Vec<MedicinalList>>> {
     let sql = SelectStmt::builder()
         .table(TABLE_NAME)
-        .fields("id, category, name, batch_number, count, validity")
+        .fields("id, category, name, batch_number, count, validity, is_del")
         .condition(Some(condition))
-        .order(Some("id DESC"))
+        .order(Some("validity ASC"))
         .limit(Some(PAGE_SIZE))
         .offset(Some(page * PAGE_SIZE as u32))
         .build();
@@ -53,10 +53,17 @@ pub async fn select(
 /// * `medicinal` - 药品信息
 pub async fn create(client: &Client, medicinal: &CreateMedicinal) -> Result<MedicinalID> {
     debug!("medicinal create: {:?}", medicinal);
-    if is_exists_name_batch_number(client, &medicinal.name, &medicinal.batch_number).await? {
+    if is_exists_name_category_batch_number(
+        client,
+        &medicinal.name,
+        &medicinal.category,
+        &medicinal.batch_number,
+    )
+    .await?
+    {
         return Err(crate::error::AppError::is_exists(&format!(
-            "药品名称:'{}' 或批次号:'{}' 已存在",
-            medicinal.name, medicinal.batch_number
+            "药品名称:'{}' 或类目:'{}' 或者批号: '{}' 已存在",
+            medicinal.name, medicinal.category, medicinal.batch_number
         )));
     }
 
@@ -137,4 +144,22 @@ pub async fn is_exists_name_batch_number(
     let condition = Some("name = $1 AND batch_number = $2");
     // let args = &[name, batch_number];
     is_exists(client, condition, &[&name, &batch_number]).await
+}
+
+/// 判断药品名称和批号是否存在，或者包含AppError的错误信息
+///
+/// # 参数
+///
+/// * `client` - 数据库连接对象
+/// * `name` - 药品名称
+/// * `category` - 类目
+/// * `batch_number` - 批号
+pub async fn is_exists_name_category_batch_number(
+    client: &Client,
+    name: &str,
+    category: &str,
+    batch_number: &str,
+) -> Result<bool> {
+    let condition = Some("name = $1 AND category = $2 AND batch_number = $3");
+    is_exists(client, condition, &[&name, &category, &batch_number]).await
 }

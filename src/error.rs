@@ -143,6 +143,12 @@ impl From<calamine::XlsError> for AppError {
     }
 }
 
+impl From<calamine::Error> for AppError {
+    fn from(err: calamine::Error) -> Self {
+        Self::from_err(err, AppErrorType::ExcelError)
+    }
+}
+
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let status_code = (&self).status_code();
