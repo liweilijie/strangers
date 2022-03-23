@@ -6,3 +6,12 @@ pub struct AdminLogin {
     pub password: String,
     pub hcaptcha_response: String,
 }
+
+#[derive(Deserialize, Debug)]
+pub struct CreateMedicinal {
+    pub name: String,
+    pub category: String,
+    pub batch_number: String,
+    pub count: String,
+    pub validity: String,
+}

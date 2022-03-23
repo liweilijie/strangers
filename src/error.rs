@@ -18,6 +18,8 @@ pub enum AppErrorType {
     JsonError,
     NotFound,
     IsExists,
+    UploadError,
+    ExcelError,
     ProtectedContentError,
     /// 通用错误
     Common,
@@ -126,6 +128,18 @@ impl From<deadpool_postgres::PoolError> for AppError {
 impl From<tokio_postgres::Error> for AppError {
     fn from(err: tokio_postgres::Error) -> Self {
         Self::db_error(err)
+    }
+}
+
+impl From<calamine::XlsxError> for AppError {
+    fn from(err: calamine::XlsxError) -> Self {
+        Self::from_err(err, AppErrorType::ExcelError)
+    }
+}
+
+impl From<calamine::XlsError> for AppError {
+    fn from(err: calamine::XlsError) -> Self {
+        Self::from_err(err, AppErrorType::ExcelError)
     }
 }
 

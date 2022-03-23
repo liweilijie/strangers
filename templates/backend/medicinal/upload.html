@@ -1,0 +1,13 @@
+{% extends "../base.html" %} 
+{% block parent_title %} 药品管理 {% endblock %}
+{% block parent_url %}medicinal{% endblock %}
+{% block title %}批量上传文件{% endblock %}
+{% block content %}
+<form action="/admin/medicinal/upload" method="post" enctype="multipart/form-data">
+    <div class="form-group">
+        <label for="upload_file">上传文件 </label>
+        <input type="file" class="form-control" id="upload_file" name="upload_file">
+    </div>
+    <button type="submit" class="btn btn-primary">上传文件</button>
+</form>
+{% endblock %}

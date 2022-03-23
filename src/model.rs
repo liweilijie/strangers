@@ -8,6 +8,7 @@ pub struct AppState {
     pub rdc: Client,
     pub sess_cfg: SessionConfig,
     pub hcap_cfg: HCaptchaConfig,
+    pub upload_dir: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -42,6 +43,12 @@ pub struct MedicinalList {
     pub category: String,
     pub name: String,
     pub batch_number: String,
-    pub count: i32,
+    pub count: String,
     pub validity: chrono::NaiveDate,
+}
+
+#[derive(PostgresMapper)]
+#[pg_mapper(table = "medicinal")]
+pub struct MedicinalID {
+    pub id: i32,
 }

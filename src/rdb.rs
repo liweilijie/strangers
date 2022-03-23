@@ -3,6 +3,7 @@ use crate::Result;
 use redis::aio::Connection;
 use redis::AsyncCommands;
 use redis::Client;
+use tracing::debug;
 
 /// 获取连接
 async fn get_conn(client: &Client) -> Result<Connection> {
@@ -12,6 +13,7 @@ async fn get_conn(client: &Client) -> Result<Connection> {
 /// 将数据写入 redis
 pub async fn set(client: &Client, key: &str, value: &str, sec: usize) -> Result<()> {
     let mut conn = get_conn(client).await?;
+    debug!("redis set key: {}, value: {}, sec: {}", key, value, sec);
     conn.set_ex(key, value, sec).await.map_err(AppError::from)
 }
 

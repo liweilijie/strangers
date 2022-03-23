@@ -19,6 +19,10 @@ pub fn routers() -> Router {
             "/medicinal/add",
             get(medicinal::add).post(medicinal::add_action),
         )
+        .route(
+            "/medicinal/upload",
+            get(medicinal::upload).post(medicinal::upload_action),
+        )
 }
 
 pub async fn get_logined_admin(
@@ -28,7 +32,7 @@ pub async fn get_logined_admin(
     let sess_cfg = state.clone().sess_cfg.clone();
     debug!("sess_cfg: {:#?}", sess_cfg);
     let cookie = get_cookie(headers, &sess_cfg.id_name);
-    debug!("result cookie: {:#?}", cookie);
+    debug!("result cookie: {:?}", cookie);
     if let Some(session_id) = cookie {
         if !session_id.is_empty() {
             let redis_key = gen_redis_key(&sess_cfg, &session_id);
@@ -44,7 +48,10 @@ pub async fn get_logined_admin(
                         error!("des parse session failed: {:?}", err);
                         AppError::auth_error("UNAUTHENTICATED")
                     })?;
-                debug!("admin_session: {:#?}", admin_session);
+                debug!(
+                    "deserialize success and admin_session: {:#?}",
+                    admin_session
+                );
                 return Ok(Some(admin_session));
             }
         }

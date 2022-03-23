@@ -1,20 +1,28 @@
 {% extends "../base.html" %} 
 {% block parent_title %}药品管理 {% endblock %}
-{% block parent_url %}subject{% endblock %}
+{% block parent_url %}medicinal{% endblock %}
 {% block title %}添加药品{% endblock %}
 {% block content %}
 <form action="/admin/medicinal/add" method="post">
     <div class="form-group">
-        <label for="name">名称</label>
+        <label for="category"> 药品类目</label>
+        <input type="text" class="form-control" id="category" name="category" placeholder="药品类目" required>
+    </div>
+    <div class="form-group">
+        <label for="name">药品名称</label>
         <input type="text" class="form-control" id="name" name="name" placeholder="专题名称" required>
     </div>
     <div class="form-group">
-        <label for="slug">固定链接</label>
-        <input type="text" class="form-control" id="slug" name="slug" placeholder="固定链接" required>
+        <label for="batch_number">药品批号</label>
+        <input type="text" class="form-control" id="batch_number" name="batch_number" placeholder="药品批号" required>
     </div>
     <div class="form-group">
-        <label for="summary">摘要</label>
-        <textarea class="form-control" name="summary" id="summary" rows="3" placeholder="摘要" required></textarea>
+        <label for="count">数量</label>
+        <input type="text" class="form-control" name="count" id="count" placeholder="数量" required>
+    </div>
+    <div class="form-group">
+        <label for="validity">有效期</label>
+        <input type="text" class="form-control" name="validity" id="validity" placeholder="有效期" required>
     </div>
     <button type="submit" class="btn btn-primary">提交</button>
 </form>

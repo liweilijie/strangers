@@ -26,15 +26,16 @@ pub async fn admin_login(
     Form(login): Form<form::AdminLogin>,
 ) -> Result<(StatusCode, HeaderMap, ())> {
     let handler_name = "auth_login";
-    let is_valid = hcaptcha::verify(
-        login.hcaptcha_response.clone(),
-        state.hcap_cfg.secret_key.clone(),
-    )
-    .await?;
-    if !is_valid {
-        debug!("hcaptcha verification failed");
-        // return Err(AppError::auth_error("人机验证失败"));
-    }
+    // 不用去验证图片验证码
+    // let is_valid = hcaptcha::verify(
+    //     login.hcaptcha_response.clone(),
+    //     state.hcap_cfg.secret_key.clone(),
+    // )
+    // .await?;
+    // if !is_valid {
+    //     debug!("hcaptcha verification failed");
+    //     // return Err(AppError::auth_error("人机验证失败"));
+    // }
     let client = get_client(&state, handler_name).await?;
     let login_admin = admin::find(&client, &login.username)
         .await
@@ -80,6 +81,7 @@ pub async fn admin_logout(
     let cookie = get_cookie(&headers, &cfg.id_name);
     if let Some(val) = cookie {
         let redis_key = gen_redis_key(&cfg, &val);
+        debug!("logout delete redis_key: {:?}", redis_key);
         rdb::del(&state.rdc, &redis_key).await?;
     }
     let cookie_logout = format!("{}=", &cfg.id_name);

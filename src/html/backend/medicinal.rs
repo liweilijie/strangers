@@ -12,3 +12,7 @@ pub struct IndexTemplate {
 #[derive(Template)]
 #[template(path = "backend/medicinal/add.html")]
 pub struct AddTemplate {}
+
+#[derive(Template)]
+#[template(path = "backend/medicinal/upload.html")]
+pub struct UploadTemplate {}

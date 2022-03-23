@@ -38,6 +38,7 @@ pub struct Config {
     pub redis: RedisConfig,
     pub session: SessionConfig,
     pub hcaptcha: HCaptchaConfig,
+    pub upload_dir: Option<String>,
 }
 
 impl Config {
