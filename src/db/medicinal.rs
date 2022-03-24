@@ -1,14 +1,15 @@
 use crate::db::pagination::Pagination;
 use crate::db::select_stmt::SelectStmt;
-use crate::db::PAGE_SIZE;
+use crate::db::{execute, PAGE_SIZE};
 use crate::error::{AppError, AppErrorType};
-use crate::form::CreateMedicinal;
+use crate::form::{CreateMedicinal, UpdateMedicinal};
 use crate::model::{MedicinalID, MedicinalList};
 use crate::Result;
 use std::str::FromStr;
 use tokio_postgres::types::ToSql;
 use tokio_postgres::Client;
 use tracing::debug;
+use tracing::field::debug;
 
 /// 表名
 const TABLE_NAME: &str = "medicinal";
@@ -45,6 +46,28 @@ pub async fn select(
     Ok(super::select(client, &sql, &count_sql, args, page).await?)
 }
 
+/// 根据条件获取药品，返回药品，或者包含AppError的错误信息
+///
+/// # 参数
+///
+/// * `client` - 数据库连接对象
+/// * `condition` - 条件
+/// * `args` - 条件对应的参数
+pub async fn find(
+    client: &Client,
+    condition: Option<&str>,
+    args: &[&(dyn ToSql + Sync)],
+) -> Result<MedicinalList> {
+    let sql = SelectStmt::builder()
+        .table(TABLE_NAME)
+        .fields("id, category, name, batch_number, count, validity, is_del")
+        .condition(condition)
+        .limit(Some(1))
+        .build();
+    debug!("medicinal find sql: {}", sql);
+    Ok(super::query_one(client, &sql, args, Some("没有找到符合条件的药品")).await?)
+}
+
 /// 创建药品，返回新创建的药品的 ID 或者包含AppError的错误信息
 ///
 /// # 参数
@@ -67,16 +90,18 @@ pub async fn create(client: &Client, medicinal: &CreateMedicinal) -> Result<Medi
         )));
     }
 
-    let validity: chrono::NaiveDate =
-        chrono::NaiveDate::parse_from_str(&medicinal.validity, "%Y%m%d").map_err(|err| {
-            AppError::from_str(
-                &format!("日期格式错误,错误信息:'{}'", err.to_string()),
-                AppErrorType::DbError,
-            )
-        })?;
-    debug!("medicinal create: {:?}", validity);
+    // 如果从字符串只转化为 NaiveDate
+    // let validity: chrono::NaiveDate =
+    //     chrono::NaiveDate::parse_from_str(&medicinal.validity, "%Y%m%d").map_err(|err| {
+    //         AppError::from_str(
+    //             &format!("日期格式错误,错误信息:'{}'", err.to_string()),
+    //             AppErrorType::DbError,
+    //         )
+    //     })?;
+    // debug!("medicinal create: {:?}", validity);
 
     let sql = "INSERT INTO medicinal (category, name, batch_number, count, validity) VALUES ($1, $2, $3, $4, $5) RETURNING id";
+    debug!("medicinal create sql: {}", sql);
     Ok(super::query_one(
         client,
         sql,
@@ -85,7 +110,7 @@ pub async fn create(client: &Client, medicinal: &CreateMedicinal) -> Result<Medi
             &medicinal.name,
             &medicinal.batch_number,
             &medicinal.count,
-            &validity,
+            &medicinal.validity,
         ],
         Some("插入药品失败"),
     )
@@ -162,4 +187,65 @@ pub async fn is_exists_name_category_batch_number(
 ) -> Result<bool> {
     let condition = Some("name = $1 AND category = $2 AND batch_number = $3");
     is_exists(client, condition, &[&name, &category, &batch_number]).await
+}
+
+/// 删除或者恢复药品，返回操作结果，或者包含AppError的错误信息
+///
+/// # 参数
+///
+/// * `client` - 数据库连接对象
+/// * `id` - 要操作的药品 ID
+///  * `is_del_opt` - 是否为删除操作
+async fn del_or_recover(client: &Client, id: i32, is_del_opt: bool) -> Result<bool> {
+    let result = execute(
+        client,
+        "UPDATE medicinal SET is_del=$1 WHERE id=$2",
+        &[&is_del_opt, &id],
+    )
+    .await?;
+    match result {
+        ref updated if *updated == 1 => Ok(true),
+        _ => Ok(false),
+    }
+}
+
+/// 删除药品。返回操作结果或者包含AppError的错误信息
+///
+/// # 参数
+///
+/// * `client` - 数据库连接对象
+/// * `id` - 要操作的药品 ID
+pub async fn delete(client: &Client, id: i32) -> Result<bool> {
+    del_or_recover(client, id, true).await
+}
+
+/// 恢复药品。返回操作结果，或者包含AppError的错误信息
+///
+/// # 参数
+///
+/// * `client` - 数据库连接对象
+/// * `id` - 要操作的药品 ID
+pub async fn recover(client: &Client, id: i32) -> Result<bool> {
+    del_or_recover(client, id, false).await
+}
+
+/// 更新药品，返回更新结果，或者包含AppError的错误信息
+///
+/// # 参数
+///
+/// * `client` - 数据库连接对象
+/// * `med` - 输入的药品信息
+pub async fn update(client: &Client, med: &UpdateMedicinal) -> Result<bool> {
+    // 直接更新
+    let result = execute(
+        client,
+        "UPDATE medicinal set name=$1, category=$2, batch_number=$3, count=$4, validity=$5 WHERE id=$6",
+        &[&med.name, &med.category, &med.batch_number, &med.count, &med.validity, &med.id],
+    )
+        .await?;
+
+    match result {
+        ref updated if *updated == 1 => Ok(true),
+        _ => Ok(false),
+    }
 }

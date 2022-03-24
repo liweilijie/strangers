@@ -16,3 +16,9 @@ pub struct AddTemplate {}
 #[derive(Template)]
 #[template(path = "backend/medicinal/upload.html")]
 pub struct UploadTemplate {}
+
+#[derive(Template)]
+#[template(path = "backend/medicinal/edit.html")]
+pub struct EditTemplate {
+    pub medicinal: model::MedicinalList,
+}

@@ -15,14 +15,25 @@ pub fn routers() -> Router {
     Router::new()
         .route("/", get(index::index))
         .route("/medicinal", get(medicinal::index))
+        // 添加药品
         .route(
             "/medicinal/add",
             get(medicinal::add).post(medicinal::add_action),
         )
+        // 编辑药品
+        .route(
+            "/medicinal/edit/:id",
+            get(medicinal::edit).post(medicinal::edit_action),
+        )
+        // 批量上传药品
         .route(
             "/medicinal/upload",
             get(medicinal::upload).post(medicinal::upload_action),
         )
+        // 删除药品
+        .route("/medicinal/del/:id", get(medicinal::del))
+        // 恢复药品
+        .route("/medicinal/recover/:id", get(medicinal::recover))
 }
 
 pub async fn get_logined_admin(

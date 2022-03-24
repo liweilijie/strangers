@@ -3,16 +3,16 @@ use crate::error::{AppError, AppErrorType};
 use crate::form::CreateMedicinal;
 use crate::handler::helper::{get_client, log_error, render};
 use crate::handler::redirect::redirect;
-use crate::html::backend::medicinal::{AddTemplate, IndexTemplate, UploadTemplate};
+use crate::html::backend::medicinal::{AddTemplate, EditTemplate, IndexTemplate, UploadTemplate};
 use crate::model::AppState;
 use crate::{arg, form, Result};
-use axum::extract::{ContentLengthLimit, Extension, Form, Multipart, Query};
+use axum::extract::{ContentLengthLimit, Extension, Form, Multipart, Path, Query};
 use axum::http::StatusCode;
 use axum::response::Html;
 use calamine::DataType::Empty;
 use calamine::{open_workbook, open_workbook_auto, Reader, Xls, Xlsx};
 use reqwest::header::HeaderMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::field::debug;
 use tracing::{debug, error, warn};
@@ -43,6 +43,7 @@ pub async fn index(
     render(tmpl, handler_name)
 }
 
+// 添加药品页
 pub async fn add() -> Result<Html<String>> {
     let tmpl = AddTemplate {};
     render(tmpl, "backend_medicinal_add")
@@ -60,6 +61,63 @@ pub async fn add_action(
         .map_err(log_error(handler_name.to_string()))?;
 
     redirect("/admin/medicinal?msg=药品添加成功")
+}
+
+// 编辑药品
+pub async fn edit(
+    Extension(state): Extension<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<Html<String>> {
+    debug!("edit id: {}", id);
+    let handler_name = "backend_medicinal_edit";
+    let client = get_client(&state, handler_name).await?;
+    debug!("start to find id.");
+    let med = medicinal::find(&client, Some("id=$1"), &[&id])
+        .await
+        .map_err(log_error(handler_name.to_string()))?;
+    let tmpl = EditTemplate { medicinal: med };
+    render(tmpl, handler_name)
+}
+
+// 编辑药品操作
+pub async fn edit_action(
+    Extension(state): Extension<Arc<AppState>>,
+    form: Form<form::UpdateMedicinal>,
+) -> Result<(StatusCode, HeaderMap, ())> {
+    let handler_name = "backend_medicinal_edit_action";
+    let client = get_client(&state, handler_name).await?;
+    debug!("edit_action and form: {:#?}", form);
+    medicinal::update(&client, &form)
+        .await
+        .map_err(log_error(handler_name.to_string()))?;
+
+    redirect("/admin/medicinal?msg=药品编辑成功")
+}
+
+// 删除药品
+pub async fn del(
+    Extension(state): Extension<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<(StatusCode, HeaderMap, ())> {
+    let handler_name = "backend_medicinal_del";
+    let client = get_client(&state, handler_name).await?;
+    medicinal::delete(&client, id)
+        .await
+        .map_err(log_error(handler_name.to_string()))?;
+    redirect("/admin/medicinal?msg=药品删除成功")
+}
+
+// 恢复某个药品
+pub async fn recover(
+    Extension(state): Extension<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<(StatusCode, HeaderMap, ())> {
+    let handler_name = "backend_medicinal_recover";
+    let client = get_client(&state, handler_name).await?;
+    medicinal::recover(&client, id)
+        .await
+        .map_err(log_error(handler_name.to_string()))?;
+    redirect("/admin/medicinal?msg=药品恢复成功")
 }
 
 pub async fn upload() -> Result<Html<String>> {
@@ -93,7 +151,16 @@ pub async fn upload_action(
         debug!("upload_action and filename: {:#?}", filename);
         debug!("upload_action and data size: {}", data.len());
 
-        let to_path = format!("{}/{}", &state.upload_dir, filename);
+        // 文件创建以时间为前缀
+        let to_path = format!(
+            "{}/{}-{}",
+            &state.upload_dir,
+            format!(
+                "upload_{}",
+                chrono::Local::now().format("%Y-%m-%d_%H:%M:%S")
+            ),
+            filename
+        );
 
         debug!("upload_action and to_path: {}", to_path);
 
@@ -153,9 +220,9 @@ async fn load_excel_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)>
     let mut excel = open_workbook_auto(file)?;
     let mut category: Option<String> = None;
     let name_keys = vec!["药品", "名称", "药名", "项目", "型号"];
-    let validity_keys = vec!["有效期", "有效期至", "效期", "有效", "日期"];
+    let validity_keys = vec!["有效期", "有效期至", "效期", "有效"];
     let count_keys = vec!["数量", "基数", "数"];
-    let batch_number_keys = vec!["批号", "批号号"];
+    let batch_number_keys = vec!["批号", "生产日期", "生产"];
 
     let mut name_index: Option<usize> = None;
     let mut count_index: Option<usize> = None;
@@ -170,10 +237,10 @@ async fn load_excel_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)>
         for row in r.rows() {
             total_count += 1;
             // debug!("row: {:#?}", row);
-            // 最正常的情况下有四列，第一列是类别，第二列是药品名称，第三列是数量，第四列是有效期 当然顺序还可能不一样，所以要处理顺序
+            // 最正常的情况下有四列，第一列是药品名称， 第二列是批号，第三列是数量，第四列是有效期 当然顺序还可能不一样，所以要处理顺序
             // 说明有批号
             // 查找 category
-            // 至少需要2列才正常
+            // 至少需要2列才正常, 一列是名字，一列是有效期
             if row.len() < 2 {
                 error!("excel column too small row.len < 2");
                 continue;
@@ -261,7 +328,7 @@ async fn load_excel_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)>
                     warn!("skip because of validity is empty: {:?}", row);
                     continue;
                 }
-                let validity = validity.unwrap();
+                let validity = validity.unwrap().date(); // 只需要日期不需要时间
 
                 let count = if count_index.is_some() {
                     row[count_index.unwrap()].to_string().trim().to_string()
@@ -288,7 +355,7 @@ async fn load_excel_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)>
                 let medicinal = CreateMedicinal {
                     name,
                     count,
-                    validity: validity.format("%Y%m%d").to_string(),
+                    validity,
                     batch_number,
                     category: category.clone().unwrap_or("Empty".to_string()),
                 };

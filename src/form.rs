@@ -13,5 +13,15 @@ pub struct CreateMedicinal {
     pub category: String,
     pub batch_number: String,
     pub count: String,
-    pub validity: String,
+    pub validity: chrono::NaiveDate,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct UpdateMedicinal {
+    pub id: i32,
+    pub name: String,
+    pub category: String,
+    pub batch_number: String,
+    pub count: String,
+    pub validity: chrono::NaiveDate,
 }

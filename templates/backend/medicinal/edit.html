@@ -1,21 +1,29 @@
-{% extends "../base.html" %} 
-{% block parent_title %}专题管理 {% endblock %} 
-{% block parent_url %}subject{% endblock %}
-{% block title %}修改专题{% endblock %}
+{% extends "../base_with_datetime.html" %}
+{% block parent_title %}药品管理 {% endblock %}
+{% block parent_url %}medicinal{% endblock %}
+{% block title %}修改药品{% endblock %}
 {% block content %}
-<form action="/admin/subject/edit/{{ subject.id }}" method="post">
-    <input type="hidden" name="id" value="{{ subject.id }}">
+<form action="/admin/medicinal/edit/{{ medicinal.id }}" method="post">
+    <input type="hidden" name="id" value="{{ medicinal.id }}">
     <div class="form-group">
-        <label for="name">名称</label>
-        <input type="text" class="form-control" id="name" name="name" placeholder="专题名称" value="{{ subject.name }}" required>
+        <label for="name">药品名称</label>
+        <input type="text" class="form-control" id="name" name="name" placeholder="药品名称" value="{{ medicinal.name }}" required>
     </div>
     <div class="form-group">
-        <label for="slug">固定链接</label>
-        <input type="text" class="form-control" id="slug" name="slug" placeholder="固定链接" value="{{ subject.slug }}" required>
+        <label for="category">药品类目</label>
+        <input type="text" class="form-control" id="category" name="category" placeholder="药品类目" value="{{ medicinal.category }}" required>
     </div>
     <div class="form-group">
-        <label for="summary">摘要</label>
-        <textarea class="form-control" name="summary" id="summary" rows="3" placeholder="摘要" required>{{ subject.summary }}</textarea>
+        <label for="batch_number">批号/生产日期</label>
+        <input type="text" class="form-control" id="batch_number" name="batch_number" placeholder="批号或生产日期" value="{{ medicinal.batch_number }}" required>
+    </div>
+    <div class="form-group">
+        <label for="count">数量</label>
+        <input type="text" class="form-control" id="count" name="count" placeholder="药品数量" value="{{ medicinal.count }}" required>
+    </div>
+    <div class="form-group">
+        <label for="validity">有效期</label>
+        <input type="text" class="form-control" id="validity" name="validity" placeholder="{{ medicinal.validity }}" value="{{ medicinal.validity }}" required>
     </div>
     <button type="submit" class="btn btn-primary">提交</button>
 </form>
