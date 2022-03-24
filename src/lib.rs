@@ -11,6 +11,7 @@ pub mod model;
 pub mod password;
 pub mod rdb;
 pub mod session;
+pub mod sms;
 pub mod time;
 
 /// 结果

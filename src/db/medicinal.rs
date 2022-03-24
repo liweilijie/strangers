@@ -249,3 +249,19 @@ pub async fn update(client: &Client, med: &UpdateMedicinal) -> Result<bool> {
         _ => Ok(false),
     }
 }
+
+/// 查询所有数据
+pub async fn all(
+    client: &Client,
+    condition: &str,
+    args: &[&(dyn ToSql + Sync)],
+) -> Result<Vec<MedicinalList>> {
+    let sql = SelectStmt::builder()
+        .table(TABLE_NAME)
+        .fields("id, category, name, batch_number, count, validity, is_del")
+        .order(Some("validity ASC"))
+        .condition(Some(condition))
+        .build();
+    debug!("medicinal all sql: {}", sql);
+    Ok(super::query(client, &sql, args).await?)
+}

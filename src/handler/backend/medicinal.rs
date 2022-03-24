@@ -11,7 +11,9 @@ use axum::http::StatusCode;
 use axum::response::Html;
 use calamine::DataType::Empty;
 use calamine::{open_workbook, open_workbook_auto, Reader, Xls, Xlsx};
+use chrono::Local;
 use reqwest::header::HeaderMap;
+use std::fmt::format;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::field::debug;
@@ -28,9 +30,39 @@ pub async fn index(
     let client = get_client(&state, handler_name).await?;
     let args = args.unwrap().0;
     let q_keyword = format!("%{}%", args.keyword());
+
+    let q_expired = args.expired();
+    // 处理查询日期(月份)
+    let q_expired_result = if q_expired > 0 {
+        if q_expired == 1 {
+            // 表示已经过期的数据
+            format!(
+                " AND validity <= '{}'",
+                chrono::Local::now().format("%Y-%m-%d").to_string(),
+            )
+        } else {
+            // 表示between 当前时间到 (q_expired-1)*30 天之间的数据
+            format!(
+                " AND validity BETWEEN '{}' AND '{}'",
+                chrono::Local::now().format("%Y-%m-%d").to_string(),
+                chrono::Local::now()
+                    .checked_add_signed(chrono::Duration::days((q_expired - 1) as i64 * 30))
+                    .unwrap()
+                    .format("%Y-%m-%d")
+                    .to_string(),
+            )
+        }
+    } else {
+        "".to_string()
+    };
+
+    debug!("q_expired_result: {}", q_expired_result);
+    let condition = format!("is_del=$1 AND name LIKE $2 {}", q_expired_result);
+
     let medicinal_list = medicinal::select(
         &client,
-        "is_del=$1 AND name LIKE $2",
+        // "is_del=$1 AND name LIKE $2",
+        &condition,
         &[&args.is_del(), &q_keyword],
         args.page.unwrap_or(0),
     )
@@ -399,5 +431,22 @@ mod tests {
         let s = " 药  品 ";
         let replace_all = remove_whitespace(s);
         assert_eq!("药品", replace_all);
+    }
+
+    #[test]
+    fn test_get_date() {
+        let s = "2022-03-24";
+        let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+        assert_eq!(date, s);
+
+        let s = "2022-04-23";
+        // 增加一个月时间
+        let date = chrono::Local::now()
+            .checked_add_signed(chrono::Duration::days(30))
+            .unwrap()
+            .format("%Y-%m-%d")
+            .to_string();
+        println!("{}", date);
+        assert_eq!(date, s);
     }
 }

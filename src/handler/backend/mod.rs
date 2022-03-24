@@ -1,3 +1,4 @@
+pub mod admin;
 pub mod index;
 pub mod medicinal;
 
@@ -15,25 +16,25 @@ pub fn routers() -> Router {
     Router::new()
         .route("/", get(index::index))
         .route("/medicinal", get(medicinal::index))
-        // 添加药品
         .route(
             "/medicinal/add",
             get(medicinal::add).post(medicinal::add_action),
-        )
-        // 编辑药品
+        ) // 添加药品
         .route(
             "/medicinal/edit/:id",
             get(medicinal::edit).post(medicinal::edit_action),
-        )
-        // 批量上传药品
+        ) // 编辑药品
         .route(
             "/medicinal/upload",
             get(medicinal::upload).post(medicinal::upload_action),
-        )
-        // 删除药品
-        .route("/medicinal/del/:id", get(medicinal::del))
-        // 恢复药品
-        .route("/medicinal/recover/:id", get(medicinal::recover))
+        ) // 批量上传药品
+        .route("/medicinal/del/:id", get(medicinal::del)) // 删除药品
+        .route("/medicinal/recover/:id", get(medicinal::recover)) // 恢复药品
+        .route("/admin", get(admin::index))
+        .route("/admin/add", get(admin::add).post(admin::add_action)) // 添加管理员
+        .route("/admin/edit/:id", get(admin::edit).post(admin::edit_action)) // 编辑管理员
+        .route("/admin/del/:id", get(admin::del)) // 删除管理员
+        .route("/admin/recover/:id", get(admin::recover)) // 恢复管理员
 }
 
 pub async fn get_logined_admin(

@@ -25,3 +25,28 @@ pub struct UpdateMedicinal {
     pub count: String,
     pub validity: chrono::NaiveDate,
 }
+
+#[derive(Deserialize, Debug)]
+pub struct CreateAdmin {
+    pub username: String,
+    pub password: String,
+    pub re_password: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct UpdateAdmin {
+    pub id: i32,
+    pub username: String,
+    pub password: String,
+    pub new_password: String,
+    pub re_password: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ChangeAdminPassword {
+    pub id: i32,
+    pub username: String,
+    pub password: String,
+    pub new_password: String,
+    pub re_password: String,
+}

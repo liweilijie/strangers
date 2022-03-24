@@ -4,9 +4,10 @@ use axum::routing::{get, get_service};
 use axum::Router;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use strangers::handler::{auth, backend};
+use strangers::handler::{auth, backend, home};
 use strangers::middleware::admin_auth::Auth;
 use strangers::model::AppState;
+use strangers::sms::sms;
 use tower::ServiceBuilder;
 use tower_http::services::ServeDir;
 use tracing::{debug, info};
@@ -38,6 +39,9 @@ async fn main() {
         upload_dir: cfg.upload_dir.unwrap_or("upload".to_string()),
     });
 
+    // 启动短信告警后台服务
+    tokio::spawn(sms::sms_schedule(state.clone()));
+
     let backend_router = backend::routers().layer(extractor_middleware::<Auth>());
     let static_serve = get_service(ServeDir::new("static")).handle_error(|err| async move {
         (
@@ -51,6 +55,7 @@ async fn main() {
         .nest("/admin", backend_router)
         .route("/login", get(auth::admin_login_ui).post(auth::admin_login))
         .route("/logout", get(auth::admin_logout))
+        .route("/", get(home::admin_index))
         .layer(ServiceBuilder::new().layer(Extension(state)));
 
     axum::Server::bind(&cfg.web.addr.parse::<SocketAddr>().unwrap())
