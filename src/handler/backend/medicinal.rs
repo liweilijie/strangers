@@ -202,7 +202,7 @@ pub async fn upload_action(
             .map_err(|err| AppError::from_err(err, AppErrorType::UploadError))?;
 
         // 读取 excel内容
-        let (result, total_count, success_count) = load_excel_file(&to_path).await?;
+        let (result, total_count, _success_count) = load_excel_file(&to_path).await?;
         // 将读取到的数据 insert 到数据库中
         let mut insert_count = 0;
         if result.len() > 0 {

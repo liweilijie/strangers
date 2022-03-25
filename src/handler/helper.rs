@@ -21,7 +21,10 @@ pub fn get_cookie(headers: &HeaderMap, name: &str) -> Option<String> {
         .get(COOKIE)
         // Result.ok() 从 Result<T, E> 转换为 Option<T>。
         // 将 self 转换为 Option<T>，使用 self，并丢弃错误 (如果有)。
-        .and_then(|value| value.to_str().ok())
+        .and_then(|value| {
+            debug!("cookie.value: {:?}", value);
+            value.to_str().ok()
+        })
         .map(|value| value.to_string());
     debug!("cookie: {:?}", cookie);
     match cookie {

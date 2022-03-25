@@ -1,0 +1,15 @@
+[Unit]
+Description=strangers
+After=network.target
+
+[Service]
+ExecStart=/usr/local/strangers/strangers
+WorkingDirectory=/usr/local/strangers
+Environment="RUST_LOG=strangers=debug"
+Restart=always
+RestartSec=6
+LimitCORE=infinity
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

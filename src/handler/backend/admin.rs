@@ -1,7 +1,7 @@
 use crate::db::admin;
 use crate::error::{AppError, AppErrorType};
 use crate::form::{CreateAdmin, UpdateAdmin};
-use crate::handler::backend::get_logined_admin;
+use crate::handler::backend::get_login_admin_by_cookie;
 use crate::handler::helper::{get_client, log_error, render};
 use crate::handler::redirect::redirect;
 use crate::html::backend::admin::{AddTemplate, EditTemplate, IndexTemplate};
@@ -11,6 +11,7 @@ use axum::extract::{Extension, Form, Path, Query};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Html;
 use std::sync::Arc;
+use tower_cookies::Cookies;
 
 pub async fn index(
     Extension(state): Extension<Arc<AppState>>,
@@ -95,7 +96,7 @@ pub async fn edit(
 pub async fn edit_action(
     Extension(state): Extension<Arc<AppState>>,
     Form(ua): Form<UpdateAdmin>,
-    headers: HeaderMap,
+    Extension(ck): Extension<Cookies>,
 ) -> Result<(StatusCode, HeaderMap, ())> {
     let handler_name = "backend_admin_edit_action";
     if ua.new_password.is_empty() {
@@ -108,7 +109,7 @@ pub async fn edit_action(
         ));
     }
 
-    let admin_session = get_logined_admin(&state, &headers).await?;
+    let admin_session = get_login_admin_by_cookie(&state, &ck).await?;
     if admin_session.is_none() {
         return Err(AppError::auth_error("UNAUTHENTICATED"));
     }

@@ -1,4 +1,4 @@
-use crate::config::{HCaptchaConfig, SessionConfig};
+use crate::config::{HCaptchaConfig, SessionConfig, SmsConfig};
 use redis::Client;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -10,6 +10,7 @@ pub struct AppState {
     pub sess_cfg: SessionConfig,
     pub hcap_cfg: HCaptchaConfig,
     pub upload_dir: String,
+    pub sms_cfg: Option<SmsConfig>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

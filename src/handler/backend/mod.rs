@@ -10,6 +10,7 @@ use crate::{rdb, Result};
 use axum::http::HeaderMap;
 use axum::routing::get;
 use axum::Router;
+use tower_cookies::Cookies;
 use tracing::{debug, error};
 
 pub fn routers() -> Router {
@@ -68,5 +69,42 @@ pub async fn get_logined_admin(
             }
         }
     }
+    Ok(None)
+}
+
+pub async fn get_login_admin_by_cookie(
+    state: &AppState,
+    ck: &Cookies,
+) -> Result<Option<AdminSession>> {
+    let sess_cfg = state.clone().sess_cfg.clone();
+    debug!("sess_cfg: {:#?}", sess_cfg);
+    let session_id = ck
+        .get(&sess_cfg.id_name)
+        .and_then(|c| c.value().parse().ok())
+        .unwrap_or("".to_string());
+
+    debug!("session_id: {}", session_id);
+    if !session_id.is_empty() {
+        let redis_key = gen_redis_key(&sess_cfg, &session_id);
+        debug!("redis_key: {}", redis_key);
+        let admin_session = rdb::get(&state.rdc, &redis_key).await.map_err(|err| {
+            error!("get session failed: {:?}", err);
+            AppError::auth_error("UNAUTHENTICATED")
+        })?;
+        debug!("admin_session: {:#?}", admin_session);
+        if let Some(admin_session) = admin_session {
+            let admin_session: AdminSession =
+                serde_json::from_str(&admin_session).map_err(|err| {
+                    error!("des parse session failed: {:?}", err);
+                    AppError::auth_error("UNAUTHENTICATED")
+                })?;
+            debug!(
+                "deserialize success and admin_session: {:#?}",
+                admin_session
+            );
+            return Ok(Some(admin_session));
+        }
+    }
+
     Ok(None)
 }
