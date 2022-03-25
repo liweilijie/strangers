@@ -202,7 +202,12 @@ pub async fn upload_action(
             .map_err(|err| AppError::from_err(err, AppErrorType::UploadError))?;
 
         // 读取 excel内容
-        let (result, total_count, _success_count) = load_excel_file(&to_path).await?;
+        let (result, total_count, _success_count) = load_excel_file(&to_path).await.map_err(
+            |err| {
+                error!("load_excel_file error: {:?}", err);
+                AppError::from_str("文件内容读取失败, 请及时联系李杰处理.", AppErrorType::UploadError)
+            },
+        )?;
         // 将读取到的数据 insert 到数据库中
         let mut insert_count = 0;
         if result.len() > 0 {
@@ -384,6 +389,22 @@ async fn load_excel_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)>
                     name, count, validity, batch_number
                 );
 
+                let batch_number = {
+                    if batch_number == "" {
+                        "Empty".to_string()
+                    } else {
+                        batch_number
+                    }
+                };
+
+                let count = {
+                    if count == "" {
+                        "Empty".to_string()
+                    } else {
+                        count
+                    }
+                }
+
                 let medicinal = CreateMedicinal {
                     name,
                     count,
@@ -413,7 +434,7 @@ mod tests {
     async fn test_load_excel_file() {
         tracing_subscriber::fmt::init();
         // let file = "./upload/dd.xlsx";
-        let file = "./upload/wc.xls";
+        let file = "./upload/up.xls";
         load_excel_file(file).await.unwrap();
     }
 

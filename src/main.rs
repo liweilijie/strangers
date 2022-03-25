@@ -57,6 +57,7 @@ async fn main() {
         )
     });
 
+    // 注册所有路由
     let app = Router::new()
         .nest("/static", static_serve)
         .nest("/admin", backend_router)
@@ -66,6 +67,7 @@ async fn main() {
         .layer(ServiceBuilder::new().layer(Extension(state)))
         .layer(CookieManagerLayer::new());
 
+    // 启动服务
     if !&cfg.ssl_enable {
         info!("web server listening on http://{}", &cfg.web.addr);
         axum::Server::bind(&cfg.web.addr.parse::<SocketAddr>().unwrap())
