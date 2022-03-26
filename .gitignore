@@ -42,3 +42,4 @@ target/
 # .env
 /upload
 /tmp
+.DS_Store

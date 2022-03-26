@@ -36,3 +36,5 @@ tower = "0.4.12"
 calamine = { version = "0.18.0", features = ["dates"] }
 aliyun_sdk = "0.2.0"
 tower-cookies = "0.5.1"
+csv = "1.1.6"
+dateparser = {version = "0.1.6", path = "../belt/dateparser" }

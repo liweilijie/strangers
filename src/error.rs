@@ -20,6 +20,7 @@ pub enum AppErrorType {
     IsExists,
     UploadError,
     ExcelError,
+    CSVError,
     ProtectedContentError,
     /// 通用错误
     Common,

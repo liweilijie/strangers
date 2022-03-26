@@ -4,14 +4,15 @@ use crate::form::CreateMedicinal;
 use crate::handler::helper::{get_client, log_error, render};
 use crate::handler::redirect::redirect;
 use crate::html::backend::medicinal::{AddTemplate, EditTemplate, IndexTemplate, UploadTemplate};
-use crate::model::AppState;
+use crate::model::{AppState, MedicinalList};
 use crate::{arg, form, Result};
 use axum::extract::{ContentLengthLimit, Extension, Form, Multipart, Path, Query};
 use axum::http::StatusCode;
 use axum::response::Html;
 use calamine::DataType::Empty;
 use calamine::{open_workbook, open_workbook_auto, Reader, Xls, Xlsx};
-use chrono::Local;
+use chrono::{Datelike, Local};
+use dateparser::DateTimeUtc;
 use reqwest::header::HeaderMap;
 use std::fmt::format;
 use std::path::PathBuf;
@@ -202,12 +203,14 @@ pub async fn upload_action(
             .map_err(|err| AppError::from_err(err, AppErrorType::UploadError))?;
 
         // 读取 excel内容
-        let (result, total_count, _success_count) = load_excel_file(&to_path).await.map_err(
-            |err| {
+        let (result, total_count, _success_count) =
+            load_excel_file(&to_path).await.map_err(|err| {
                 error!("load_excel_file error: {:?}", err);
-                AppError::from_str("文件内容读取失败, 请及时联系李杰处理.", AppErrorType::UploadError)
-            },
-        )?;
+                AppError::from_str(
+                    "文件内容读取失败, 请及时联系李杰处理.",
+                    AppErrorType::UploadError,
+                )
+            })?;
         // 将读取到的数据 insert 到数据库中
         let mut insert_count = 0;
         if result.len() > 0 {
@@ -403,7 +406,7 @@ async fn load_excel_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)>
                     } else {
                         count
                     }
-                }
+                };
 
                 let medicinal = CreateMedicinal {
                     name,
@@ -427,8 +430,194 @@ fn remove_whitespace(s: &str) -> String {
     s.chars().filter(|c| !c.is_whitespace()).collect()
 }
 
+async fn load_csv_file(file: &str) -> Result<(Vec<MedicinalList>, u32, u32)> {
+    // 读取规则
+    // 第一行是类目
+    // 后面找到index 才能正常读取.
+    let mut rdr = csv::Reader::from_path(file).unwrap();
+
+    let mut category: Option<String> = None;
+    let name_keys = vec!["药品", "名称", "药名", "项目", "型号"];
+    let validity_keys = vec!["有效期", "有效期至", "效期", "有效"];
+    let count_keys = vec!["数量", "基数", "数"];
+    let batch_number_keys = vec!["批号", "生产日期", "生产"];
+
+    let mut name_index: Option<usize> = None;
+    let mut count_index: Option<usize> = None;
+    let mut validity_index: Option<usize> = None;
+    let mut batch_number_index: Option<usize> = None;
+    let mut index_ok = false;
+    let mut result_content: Vec<CreateMedicinal> = vec![];
+    let mut success_count: u32 = 0;
+    let mut total_count: u32 = 0;
+
+    for row in rdr.records() {
+        total_count += 1;
+        debug!("row: {:#?}", row);
+        // 最正常的情况下有四列，第一列是药品名称， 第二列是批号，第三列是数量，第四列是有效期 当然顺序还可能不一样，所以要处理顺序
+        // 说明有批号
+        // 查找 category
+        // 至少需要2列才正常, 一列是名字，一列是有效期
+        if row.is_err() {
+            warn!("row is err: {:?}", row);
+            continue;
+        }
+
+        let row = row.unwrap();
+        if row.len() < 2 {
+            error!("excel column too small row.len < 2");
+            continue;
+        }
+
+        if category.is_none() {
+            // 判断是否是第一行为类目
+            // 所有数据其他都为 Empty, 只有一个值是 String 类型的则为category
+            if row[0].is_empty() {
+                let mut other_is_empty = true;
+                for (index, val) in row.iter().enumerate() {
+                    if index == 0 {
+                        continue;
+                    } else {
+                        if !val.is_empty() {
+                            other_is_empty = false;
+                        }
+                    }
+                }
+                if other_is_empty {
+                    category = Some(row[0].to_string().trim().to_string());
+                    debug!("category: {:?}", category);
+                    total_count -= 1;
+                    continue;
+                }
+            }
+        }
+
+        // 查找标题index
+        if !index_ok {
+            debug!("row: {:#?}", row);
+            name_index = row.iter().position(|x| {
+                // 在 x 之中查找是否包含name_keys所有的关键字其中某一个
+                name_keys
+                    .iter()
+                    .any(|key| !x.is_empty() && remove_whitespace(&x.to_string()).contains(key))
+            });
+            validity_index = row.iter().position(|x| {
+                validity_keys
+                    .iter()
+                    .any(|key| !x.is_empty() && remove_whitespace(&x.to_string()).contains(key))
+            });
+            count_index = row.iter().position(|x| {
+                count_keys
+                    .iter()
+                    .any(|key| !x.is_empty() && remove_whitespace(&x.to_string()).contains(key))
+            });
+            batch_number_index = row.iter().position(|x| {
+                batch_number_keys
+                    .iter()
+                    .any(|key| !x.is_empty() && remove_whitespace(&x.to_string()).contains(key))
+            });
+
+            debug!(
+                    "name_index: {:?}, validity_index: {:?}, count_ndex: {:?}, batch_number_index: {:?}",
+                    name_index, validity_index, count_index, batch_number_index
+                );
+
+            if name_index.is_some()
+                && validity_index.is_some()
+                && name_index.unwrap() != validity_index.unwrap()
+            {
+                index_ok = true;
+                total_count -= 1;
+            }
+            continue;
+        }
+
+        // 获取数据
+        if index_ok {
+            let name = {
+                if !row[name_index.unwrap()].is_empty() {
+                    row[name_index.unwrap()].to_string().trim().to_string()
+                } else {
+                    "".to_string()
+                }
+            };
+            if name == "" {
+                warn!("skip because of name is empty: {:?}", row);
+                continue;
+            }
+
+            let validity = remove_whitespace(&row[validity_index.unwrap()])
+                .parse::<DateTimeUtc>()
+                .ok();
+
+            if validity.is_none() {
+                warn!("skip because of validity is empty: {:?}", row);
+                continue;
+            }
+            let validity = validity.unwrap().0; // 只需要日期不需要时间
+            let validity = validity.with_timezone(&Local);
+            debug!("local validity: {:?}", validity);
+
+            let count = if count_index.is_some() {
+                row[count_index.unwrap()].to_string().trim().to_string()
+            } else {
+                "Empty".to_string()
+            };
+
+            let batch_number = if batch_number_index.is_some() {
+                row[batch_number_index.unwrap()]
+                    .to_string()
+                    .trim()
+                    .to_string()
+            } else {
+                "Empty".to_string()
+            };
+
+            // count 和 batch_number 都可以为空
+
+            debug!(
+                "name: {}, count: {}, validity: {:?}, batch_number: {}",
+                name, count, validity, batch_number
+            );
+
+            let batch_number = {
+                if batch_number == "" {
+                    "Empty".to_string()
+                } else {
+                    batch_number
+                }
+            };
+
+            let count = {
+                if count == "" {
+                    "Empty".to_string()
+                } else {
+                    count
+                }
+            };
+
+            let medicinal = CreateMedicinal {
+                name,
+                count,
+                validity: chrono::NaiveDate::from_ymd(
+                    validity.year(),
+                    validity.month(),
+                    validity.day(),
+                ),
+                batch_number,
+                category: category.clone().unwrap_or("Empty".to_string()),
+            };
+            debug!("medicinal: {:#?}", medicinal);
+            success_count += 1;
+            result_content.push(medicinal);
+        }
+    }
+    Err(AppError::from_str("csv读取失败", AppErrorType::CSVError))
+}
+
 mod tests {
     use super::*;
+    use tracing::info;
 
     #[tokio::test]
     async fn test_load_excel_file() {
@@ -436,6 +625,13 @@ mod tests {
         // let file = "./upload/dd.xlsx";
         let file = "./upload/up.xls";
         load_excel_file(file).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_load_csv_file() {
+        tracing_subscriber::fmt::init();
+        let file = "./upload/外出接生包.csv";
+        load_csv_file(file).await.unwrap();
     }
 
     #[test]
@@ -469,5 +665,18 @@ mod tests {
             .to_string();
         println!("{}", date);
         assert_eq!(date, s);
+    }
+
+    #[test]
+    fn test_get_date_by_csv() {
+        tracing_subscriber::fmt::init();
+        let s = "2021年10月";
+        info!("{}", s);
+        let parsed = s.parse::<dateparser::DateTimeUtc>().unwrap().0;
+        info!("{:#?}", parsed);
+        let parsed = parsed.with_timezone(&Local);
+        // let parsed = dateparser::parse_with_timezone(s, &Local).unwrap();
+        // let parsed = chrono::NaiveDate::parse_from_str(s, "%Y年%m月").unwrap();
+        info!("{:#?}", parsed);
     }
 }
