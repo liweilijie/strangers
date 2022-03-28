@@ -38,3 +38,5 @@ aliyun_sdk = "0.2.0"
 tower-cookies = "0.5.1"
 csv = "1.1.6"
 dateparser = {version = "0.1.6", path = "../belt/dateparser" }
+lazy_static = "1.4.0"
+encoding_rs = "0.8.30"

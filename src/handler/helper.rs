@@ -16,39 +16,39 @@ pub fn render<T: Template>(tmpl: T, handler_name: &str) -> Result<Html<String>> 
     Ok(Html(out))
 }
 
-pub fn get_cookie(headers: &HeaderMap, name: &str) -> Option<String> {
-    let cookie = headers
-        .get(COOKIE)
-        // Result.ok() 从 Result<T, E> 转换为 Option<T>。
-        // 将 self 转换为 Option<T>，使用 self，并丢弃错误 (如果有)。
-        .and_then(|value| {
-            debug!("cookie.value: {:?}", value);
-            value.to_str().ok()
-        })
-        .map(|value| value.to_string());
-    debug!("cookie: {:?}", cookie);
-    match cookie {
-        Some(cookie) => {
-            let cookie = cookie.as_str();
-            let cs: Vec<&str> = cookie.split(';').collect();
-            for item in cs {
-                let item: Vec<&str> = item.split('=').collect();
-                if item.len() != 2 {
-                    continue;
-                }
-                let key = item[0];
-                let val = item[1];
-                let key = key.trim();
-                let val = val.trim();
-                if key == name {
-                    return Some(val.to_string());
-                }
-            }
-            None
-        }
-        None => None,
-    }
-}
+// pub fn get_cookie(headers: &HeaderMap, name: &str) -> Option<String> {
+//     let cookie = headers
+//         .get(COOKIE)
+//         // Result.ok() 从 Result<T, E> 转换为 Option<T>。
+//         // 将 self 转换为 Option<T>，使用 self，并丢弃错误 (如果有)。
+//         .and_then(|value| {
+//             debug!("cookie.value: {:?}", value);
+//             value.to_str().ok()
+//         })
+//         .map(|value| value.to_string());
+//     debug!("cookie: {:?}", cookie);
+//     match cookie {
+//         Some(cookie) => {
+//             let cookie = cookie.as_str();
+//             let cs: Vec<&str> = cookie.split(';').collect();
+//             for item in cs {
+//                 let item: Vec<&str> = item.split('=').collect();
+//                 if item.len() != 2 {
+//                     continue;
+//                 }
+//                 let key = item[0];
+//                 let val = item[1];
+//                 let key = key.trim();
+//                 let val = val.trim();
+//                 if key == name {
+//                     return Some(val.to_string());
+//                 }
+//             }
+//             None
+//         }
+//         None => None,
+//     }
+// }
 
 pub async fn get_client(state: &AppState, handler_name: &str) -> Result<Client> {
     state.pool.get().await.map_err(|err| {

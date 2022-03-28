@@ -13,12 +13,13 @@ use calamine::DataType::Empty;
 use calamine::{open_workbook, open_workbook_auto, Reader, Xls, Xlsx};
 use chrono::{Datelike, Local};
 use dateparser::DateTimeUtc;
+use encoding_rs::{Encoder, Encoding, GBK, UTF_8};
 use reqwest::header::HeaderMap;
 use std::fmt::format;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::field::debug;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 
 /// 允许上传的文件大小
 const MAX_UPLOAD_SIZE: u64 = 1024 * 1024 * 256; // 256 MB
@@ -170,10 +171,10 @@ pub async fn upload_action(
         let filename = file.file_name().unwrap().to_string(); // 上传的文件名称
         let sc = PathBuf::from(filename.clone());
         match sc.extension().and_then(|s| s.to_str()) {
-            Some("xlsx") | Some("xlsm") | Some("xlsb") | Some("xls") => (),
+            Some("csv") | Some("xlsx") | Some("xlsm") | Some("xlsb") | Some("xls") => (),
             _ => {
                 return Err(AppError::from_str(
-                    "excel文件格式错误",
+                    "上传文件格式错误(建议上传csv格式)",
                     AppErrorType::UploadError,
                 ))
             }
@@ -202,15 +203,21 @@ pub async fn upload_action(
             .await
             .map_err(|err| AppError::from_err(err, AppErrorType::UploadError))?;
 
-        // 读取 excel内容
-        let (result, total_count, _success_count) =
-            load_excel_file(&to_path).await.map_err(|err| {
-                error!("load_excel_file error: {:?}", err);
-                AppError::from_str(
-                    "文件内容读取失败, 请及时联系李杰处理.",
-                    AppErrorType::UploadError,
-                )
-            })?;
+        let (result, total_count, _success_count) = match sc.extension().and_then(|s| s.to_str()) {
+            // 如果是csv文件,则解析csv文件
+            Some("csv") => load_csv_file(&to_path).await.map_err(|err| {
+                error!("{} 文件内容读取失败, error: {:?}", &to_path, err);
+                AppError::from_err(err, AppErrorType::UploadError)
+            })?,
+            // 如果是excel文件,则读取 excel内容
+            _ => load_excel_file(&to_path).await.map_err(|err| {
+                error!("{} 文件内容读取失败, error: {:?}", &to_path, err);
+                AppError::from_err(err, AppErrorType::UploadError)
+            })?,
+        };
+
+        debug!("读取文件条数: {}", result.len());
+
         // 将读取到的数据 insert 到数据库中
         let mut insert_count = 0;
         if result.len() > 0 {
@@ -430,7 +437,12 @@ fn remove_whitespace(s: &str) -> String {
     s.chars().filter(|c| !c.is_whitespace()).collect()
 }
 
-async fn load_csv_file(file: &str) -> Result<(Vec<MedicinalList>, u32, u32)> {
+async fn load_csv_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)> {
+    info!("load csv file: {}", file);
+    let encoding_from = Encoding::for_label("gbk".as_bytes()).unwrap_or(GBK);
+    let encoding_to = Encoding::for_label("utf8".as_bytes()).unwrap_or(UTF_8);
+    convert_encoding(file, encoding_from, encoding_to);
+    info!("convert_encoding done");
     // 读取规则
     // 第一行是类目
     // 后面找到index 才能正常读取.
@@ -472,7 +484,7 @@ async fn load_csv_file(file: &str) -> Result<(Vec<MedicinalList>, u32, u32)> {
         if category.is_none() {
             // 判断是否是第一行为类目
             // 所有数据其他都为 Empty, 只有一个值是 String 类型的则为category
-            if row[0].is_empty() {
+            if !row[0].is_empty() {
                 let mut other_is_empty = true;
                 for (index, val) in row.iter().enumerate() {
                     if index == 0 {
@@ -612,7 +624,37 @@ async fn load_csv_file(file: &str) -> Result<(Vec<MedicinalList>, u32, u32)> {
             result_content.push(medicinal);
         }
     }
-    Err(AppError::from_str("csv读取失败", AppErrorType::CSVError))
+
+    Ok((result_content, total_count, success_count))
+}
+
+fn convert_encoding(file: &str, encoding_from: &'static Encoding, encoding_to: &'static Encoding) {
+    debug!("convert_encoding file: {}", file);
+    match std::fs::read(file) {
+        Ok(bytes) => {
+            let (string, encoding, has_malformed) = encoding_from.decode(&bytes);
+            if encoding != encoding_from {
+                println!("^^^^Detected encoding is {}", encoding.name());
+            }
+            if has_malformed {
+                println!("^^^^There are malformed characters");
+            } else {
+                let (bytes, encoding, has_unmappable) = encoding_to.encode(&string);
+                if encoding != encoding_to {
+                    println!("^^^^Saved encoding is {}", encoding.name());
+                }
+                if has_unmappable {
+                    println!("^^^^There are unmappable characters");
+                }
+                std::fs::write(file, bytes).unwrap_or_else(|err| {
+                    println!("^^^^write error: {}", err);
+                });
+            }
+        }
+        Err(err) => {
+            println!("^^^^read error: {}", err);
+        }
+    }
 }
 
 mod tests {
@@ -630,7 +672,7 @@ mod tests {
     #[tokio::test]
     async fn test_load_csv_file() {
         tracing_subscriber::fmt::init();
-        let file = "./upload/外出接生包.csv";
+        let file = "./upload/ts.csv";
         load_csv_file(file).await.unwrap();
     }
 
@@ -670,7 +712,7 @@ mod tests {
     #[test]
     fn test_get_date_by_csv() {
         tracing_subscriber::fmt::init();
-        let s = "2021年10月";
+        let s = "2024年8月";
         info!("{}", s);
         let parsed = s.parse::<dateparser::DateTimeUtc>().unwrap().0;
         info!("{:#?}", parsed);

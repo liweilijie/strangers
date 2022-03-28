@@ -21,9 +21,6 @@ where
         let state = req.extensions().unwrap().get::<Arc<AppState>>().unwrap();
         let ck = req.extensions().unwrap().get::<Cookies>().unwrap();
         let headers = req.headers().unwrap();
-        // debug!("headers: {:#?}", headers);
-        // debug!("ck: {:#?}", ck);
-        // let admin_session = get_logined_admin(&state, headers).await?;
         let admin_session = get_login_admin_by_cookie(&state, ck).await?;
         if let Some(_) = admin_session {
             Ok(Auth {})

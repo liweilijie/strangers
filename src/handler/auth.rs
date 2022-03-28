@@ -1,7 +1,8 @@
 use crate::db::admin;
 use crate::error::AppError;
-use crate::handler::helper::{get_client, get_cookie, log_error, render};
-use crate::handler::redirect::redirect_with_cookie;
+use crate::handler::backend::get_login_admin_by_cookie;
+use crate::handler::helper::{get_client, log_error, render};
+use crate::handler::redirect::{redirect, redirect_with_cookie};
 use crate::html::auth::LoginTemplate;
 use crate::model::{AdminSession, AppState};
 use crate::session::gen_redis_key;
@@ -12,6 +13,7 @@ use axum::response::Html;
 use serde_json::json;
 use std::ops::Add;
 use std::sync::Arc;
+use tower_cookies::{Cookie, Cookies};
 use tracing::debug;
 
 pub async fn admin_login_ui(Extension(state): Extension<Arc<AppState>>) -> Result<Html<String>> {
@@ -24,7 +26,15 @@ pub async fn admin_login_ui(Extension(state): Extension<Arc<AppState>>) -> Resul
 pub async fn admin_login(
     Extension(state): Extension<Arc<AppState>>,
     Form(login): Form<form::AdminLogin>,
+    Extension(ck): Extension<Cookies>,
 ) -> Result<(StatusCode, HeaderMap, ())> {
+    // 查看是否已经登录,如果已经登录则直接跳转到管理页面
+    let admin_session = get_login_admin_by_cookie(&state, &ck).await?;
+    if admin_session.is_some() {
+        debug!("已经登录,直接进管理页面.");
+        return redirect("/admin");
+    }
+
     let handler_name = "auth_login";
     // 不用去验证图片验证码
     // let is_valid = hcaptcha::verify(
@@ -70,15 +80,20 @@ pub async fn admin_login(
     rdb::set(&state.rdc, &redis_key, &data, cfg.expired).await?;
     // .map_err(AppError::form)?; // TODO:
     let cookie = format!("{}={}", cookie_key, id);
+    debug!("to set cookie: {:?}", cookie);
+    // let cookie_item = Cookie::new(cookie_key, id);
     redirect_with_cookie("/admin", Some(&cookie))
 }
 
 pub async fn admin_logout(
     Extension(state): Extension<Arc<AppState>>,
-    headers: HeaderMap,
+    Extension(ck): Extension<Cookies>,
 ) -> Result<(StatusCode, HeaderMap, ())> {
     let cfg = state.sess_cfg.clone();
-    let cookie = get_cookie(&headers, &cfg.id_name);
+    let cookie: Option<String> = ck
+        .get(&cfg.id_name)
+        .and_then(|c| Some(c.value().to_owned()));
+
     if let Some(val) = cookie {
         let redis_key = gen_redis_key(&cfg, &val);
         debug!("logout delete redis_key: {:?}", redis_key);
