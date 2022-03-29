@@ -7,6 +7,7 @@ pub struct MedicinalBackendQueryArg {
     pub msg: Option<String>,
     pub is_del: Option<bool>,
     pub expired: Option<u8>,
+    // pub order: Option<OrderKey>,
 }
 
 impl MedicinalBackendQueryArg {
@@ -39,6 +40,45 @@ impl MedicinalBackendQueryArg {
         match &self.expired {
             Some(b) => *b,
             None => 0,
+        }
+    }
+
+    // 排序方式
+    // 默认以有效期排序
+    // 可以以类目排序
+    // 刚 upload之后以 create_at 排序
+    // pub fn order(&self) -> String {
+    //     match &self.order {
+    //         Some(s) => s.to_string(),
+    //         None => "validity".to_string(),
+    //     }
+    // }
+}
+
+#[derive(Deserialize, Debug)]
+pub enum OrderKey {
+    Validity,
+    Category,
+    CreatedAt,
+}
+
+impl OrderKey {
+    pub fn to_string(&self) -> String {
+        match self {
+            OrderKey::Validity => "validity".to_string(),
+            OrderKey::Category => "category".to_string(),
+            OrderKey::CreatedAt => "created_at".to_string(),
+        }
+    }
+}
+
+impl From<&str> for OrderKey {
+    fn from(s: &str) -> Self {
+        match s {
+            "validity" => OrderKey::Validity,
+            "category" => OrderKey::Category,
+            "created_at" => OrderKey::CreatedAt,
+            _ => OrderKey::Validity,
         }
     }
 }

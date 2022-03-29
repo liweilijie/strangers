@@ -6,7 +6,6 @@ use axum::extract::{FromRequest, RequestParts};
 use std::sync::Arc;
 use tower_cookies::Cookies;
 use tracing::debug;
-use tracing::field::debug;
 
 pub struct Auth {}
 
@@ -20,7 +19,7 @@ where
     async fn from_request(req: &mut RequestParts<B>) -> Result<Self, Self::Rejection> {
         let state = req.extensions().unwrap().get::<Arc<AppState>>().unwrap();
         let ck = req.extensions().unwrap().get::<Cookies>().unwrap();
-        let headers = req.headers().unwrap();
+        // let headers = req.headers().unwrap();
         let admin_session = get_login_admin_by_cookie(&state, ck).await?;
         if let Some(_) = admin_session {
             Ok(Auth {})

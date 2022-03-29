@@ -7,7 +7,7 @@
     <thead>
         <tr>
             <th>药品名称</th>
-            <th>药品类目</th>
+            <th><a href="/admin/medicinal/?is_del={{arg.is_del()}}&expired={{arg.expired()}}&order=category">药品类目</a></th>
             <th>药品批号</th>
             <th>药品数量</th>
             <th>有效期</th>
@@ -55,11 +55,11 @@
             </button>
             <div class="dropdown-menu dropdown-menu-sm">
                 {% if arg.is_del() %}
-                <a class="dropdown-item dropdown-item-sm" href="?is_del=false">未删除</a>
-                <a class="dropdown-item dropdown-item-sm active" href="?is_del=true">已删除</a>
+                <a class="dropdown-item dropdown-item-sm" href="?is_del=false&expired={{arg.expired()}}">未删除</a>
+                <a class="dropdown-item dropdown-item-sm active" href="?is_del=true&expired={{arg.expired()}}">已删除</a>
                 {%else%}
-                <a class="dropdown-item dropdown-item-sm active" href="?is_del=false">未删除</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del=true">已删除</a>
+                <a class="dropdown-item dropdown-item-sm active" href="?is_del=false&expired={{arg.expired()}}">未删除</a>
+                <a class="dropdown-item dropdown-item-sm" href="?is_del=true&expired={{arg.expired()}}">已删除</a>
                 {%endif%}
             </div>
         </div>

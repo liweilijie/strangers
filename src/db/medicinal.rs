@@ -5,6 +5,7 @@ use crate::error::{AppError, AppErrorType};
 use crate::form::{CreateMedicinal, UpdateMedicinal};
 use crate::model::{MedicinalID, MedicinalList};
 use crate::Result;
+use chrono::Local;
 use std::str::FromStr;
 use tokio_postgres::types::ToSql;
 use tokio_postgres::Client;
@@ -244,6 +245,24 @@ pub async fn update(client: &Client, med: &UpdateMedicinal) -> Result<bool> {
     )
         .await?;
 
+    match result {
+        ref updated if *updated == 1 => Ok(true),
+        _ => Ok(false),
+    }
+}
+
+/// 更新通知时间，返回更新结果，或者包含AppError的错误信息
+///
+/// # 参数
+///
+/// * `cleint` - 数据库连接对象
+/// * `id` - 对象 id
+/// * `time` - 时间
+pub async fn update_notify_at(client: &Client, condition: &str, update_date: &str) -> Result<bool> {
+    // 直接更新可能有很多 id
+    let sql = format!("UPDATE medicinal set {} WHERE {}", update_date, condition);
+    let result = execute(client, &sql, &[]).await?;
+    debug!("update_notify_at: {sql}, {result}");
     match result {
         ref updated if *updated == 1 => Ok(true),
         _ => Ok(false),

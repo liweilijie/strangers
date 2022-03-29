@@ -2,7 +2,7 @@ use crate::handler::backend::get_login_admin_by_cookie;
 use crate::handler::redirect::redirect_with_cookie;
 use crate::model::{AdminSession, AppState};
 use crate::session::gen_redis_key;
-use crate::{rdb, Result};
+use crate::Result;
 use axum::extract::Extension;
 use axum::http::{HeaderMap, StatusCode};
 use std::sync::Arc;
@@ -17,8 +17,10 @@ pub async fn admin_index(
 ) -> Result<(StatusCode, HeaderMap, ())> {
     let admin_session = get_login_admin_by_cookie(&state, &ck).await?;
     if admin_session.is_none() {
+        debug!("admin_index: not login");
         redirect_with_cookie("/login", None)
     } else {
+        debug!("admin_index: login");
         redirect_with_cookie("/admin", None)
     }
     //

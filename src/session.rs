@@ -1,8 +1,6 @@
 use crate::config::SessionConfig;
-use lazy_static::lazy_static;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
-use regex::Regex;
 use tower_cookies::Cookies;
 use uuid::Uuid;
 

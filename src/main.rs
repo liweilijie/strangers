@@ -11,7 +11,7 @@ use strangers::model::AppState;
 use strangers::sms::send::NotifySms;
 use strangers::sms::sms;
 use tower::ServiceBuilder;
-use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
+use tower_cookies::CookieManagerLayer;
 use tower_http::services::ServeDir;
 use tracing::{debug, info};
 use tracing_subscriber::layer::SubscriberExt;

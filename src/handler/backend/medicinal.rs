@@ -12,6 +12,7 @@ use axum::response::Html;
 use calamine::DataType::Empty;
 use calamine::{open_workbook, open_workbook_auto, Reader, Xls, Xlsx};
 use chrono::{Datelike, Local};
+use csv::StringRecord;
 use dateparser::DateTimeUtc;
 use encoding_rs::{Encoder, Encoding, GBK, UTF_8};
 use reqwest::header::HeaderMap;
@@ -23,6 +24,7 @@ use tracing::{debug, error, info, warn};
 
 /// 允许上传的文件大小
 const MAX_UPLOAD_SIZE: u64 = 1024 * 1024 * 256; // 256 MB
+const DEFAULT_VALIDITY_DATE: &str = "2099-12-31";
 
 pub async fn index(
     Extension(state): Extension<Arc<AppState>>,
@@ -58,7 +60,15 @@ pub async fn index(
         "".to_string()
     };
 
+    // let q_order = args.order();
+    // let q_order_result = if !&q_order.is_empty() {
+    //     format!(" ORDER BY {}", q_order)
+    // } else {
+    //     "".to_string()
+    // };
+
     debug!("q_expired_result: {}", q_expired_result);
+    // debug!("q_order_result: {}", q_order_result);
     let condition = format!("is_del=$1 AND name LIKE $2 {}", q_expired_result);
 
     let medicinal_list = medicinal::select(
@@ -446,13 +456,18 @@ async fn load_csv_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)> {
     // 读取规则
     // 第一行是类目
     // 后面找到index 才能正常读取.
-    let mut rdr = csv::Reader::from_path(file).unwrap();
+    // let mut rdr = csv::Reader::from_path(file).unwrap();
+    let mut rdr = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .delimiter(b',')
+        .from_path(file)?;
 
     let mut category: Option<String> = None;
     let name_keys = vec!["药品", "名称", "药名", "项目", "型号"];
     let validity_keys = vec!["有效期", "有效期至", "效期", "有效"];
     let count_keys = vec!["数量", "基数", "数"];
     let batch_number_keys = vec!["批号", "生产日期", "生产"];
+    let skip_keys = vec!["签名"]; // 如果有内容包含签名的，则不进行处理与判断
 
     let mut name_index: Option<usize> = None;
     let mut count_index: Option<usize> = None;
@@ -464,7 +479,6 @@ async fn load_csv_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)> {
     let mut total_count: u32 = 0;
 
     for row in rdr.records() {
-        total_count += 1;
         debug!("row: {:#?}", row);
         // 最正常的情况下有四列，第一列是药品名称， 第二列是批号，第三列是数量，第四列是有效期 当然顺序还可能不一样，所以要处理顺序
         // 说明有批号
@@ -475,11 +489,35 @@ async fn load_csv_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)> {
             continue;
         }
 
-        let row = row.unwrap();
+        let row: StringRecord = row.unwrap();
         if row.len() < 2 {
             error!("excel column too small row.len < 2");
             continue;
         }
+
+        // 所有行的内容都为空则跳过
+        // all() 接受一个返回 true 或 false 的闭包。它将这个闭包应用于迭代器的每个元素，如果它们都返回 true，那么 all() 也返回。 如果它们中的任何一个返回 false，则返回 false。
+        // all() 短路; 换句话说，它一旦找到 false 就会停止处理，因为无论发生什么，结果也将是 false。
+        // 空的迭代器将返回 true。
+        if row
+            .iter()
+            .all(|x| x.is_empty() || remove_whitespace(&x).is_empty())
+        {
+            continue;
+        }
+
+        // any() 短路; 换句话说，它一旦找到 true 就会停止处理，因为无论发生什么，结果也将是 true。
+        // 如果任意一行有如下内容的则返回不计算
+        if row.iter().any(|x| {
+            skip_keys
+                .iter()
+                .any(|key| !x.is_empty() && remove_whitespace(&x.to_string()).contains(key))
+        }) {
+            warn!("找到过滤的行，所以此行不进行处理直接跳过。{:#?}", row);
+            continue;
+        }
+
+        total_count += 1;
 
         if category.is_none() {
             // 判断是否是第一行为类目
@@ -558,14 +596,21 @@ async fn load_csv_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)> {
                 continue;
             }
 
-            let validity = remove_whitespace(&row[validity_index.unwrap()])
+            let mut validity = remove_whitespace(&row[validity_index.unwrap()])
                 .parse::<DateTimeUtc>()
                 .ok();
 
             if validity.is_none() {
-                warn!("skip because of validity is empty: {:?}", row);
-                continue;
+                if remove_whitespace(&row[validity_index.unwrap()]) == "无".to_string() {
+                    // 结定一个默认的日期
+                    validity = Some(DEFAULT_VALIDITY_DATE.parse::<DateTimeUtc>().unwrap());
+                    warn!("匹配到 无，所以无效期默认为 {}", DEFAULT_VALIDITY_DATE);
+                } else {
+                    warn!("skip because of validity is empty: {:?}", row);
+                    continue;
+                }
             }
+
             let validity = validity.unwrap().0; // 只需要日期不需要时间
             let validity = validity.with_timezone(&Local);
             debug!("local validity: {:?}", validity);
@@ -625,6 +670,10 @@ async fn load_csv_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)> {
         }
     }
 
+    debug!(
+        "total_count: {}, success_count: {}",
+        total_count, success_count
+    );
     Ok((result_content, total_count, success_count))
 }
 
@@ -659,6 +708,7 @@ fn convert_encoding(file: &str, encoding_from: &'static Encoding, encoding_to: &
 
 mod tests {
     use super::*;
+    use csv::ByteRecord;
     use tracing::info;
 
     #[tokio::test]
@@ -672,7 +722,7 @@ mod tests {
     #[tokio::test]
     async fn test_load_csv_file() {
         tracing_subscriber::fmt::init();
-        let file = "./upload/ts.csv";
+        let file = "./upload/ts2.csv";
         load_csv_file(file).await.unwrap();
     }
 
@@ -720,5 +770,32 @@ mod tests {
         // let parsed = dateparser::parse_with_timezone(s, &Local).unwrap();
         // let parsed = chrono::NaiveDate::parse_from_str(s, "%Y年%m月").unwrap();
         info!("{:#?}", parsed);
+
+        let s = "2023-04";
+        info!("{}", s);
+        let parsed = s.parse::<dateparser::DateTimeUtc>().unwrap().0;
+        info!("{:#?}", parsed);
+        let parsed = parsed.with_timezone(&Local);
+        // let parsed = dateparser::parse_with_timezone(s, &Local).unwrap();
+        // let parsed = chrono::NaiveDate::parse_from_str(s, "%Y年%m月").unwrap();
+        info!("{:#?}", parsed);
+
+        let parsed = DEFAULT_VALIDITY_DATE
+            .parse::<dateparser::DateTimeUtc>()
+            .unwrap()
+            .0;
+        info!("default validity date: {:#?}", parsed);
+    }
+
+    #[test]
+    fn test_remove_whitespace() {
+        // StringRecord(["外科手套", "2副", "      2023-04", ""])
+
+        tracing_subscriber::fmt::init();
+        let byte_record = ByteRecord::from(vec!["外科手套", "2副", "      2023-04", ""]);
+        let str_record = StringRecord::from_byte_record(byte_record).unwrap();
+        str_record.iter().for_each(|s| {
+            info!("[{}]", remove_whitespace(s));
+        });
     }
 }

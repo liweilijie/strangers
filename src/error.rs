@@ -150,6 +150,12 @@ impl From<calamine::Error> for AppError {
     }
 }
 
+impl From<csv::Error> for AppError {
+    fn from(err: csv::Error) -> Self {
+        Self::from_err(err, AppErrorType::CSVError)
+    }
+}
+
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let status_code = (&self).status_code();
