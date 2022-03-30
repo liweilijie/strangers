@@ -14,9 +14,12 @@ use serde_json::json;
 use std::ops::Add;
 use std::sync::Arc;
 use tower_cookies::{Cookie, Cookies};
-use tracing::debug;
+use tracing::{debug, error};
 
-pub async fn admin_login_ui(Extension(state): Extension<Arc<AppState>>) -> Result<Html<String>> {
+pub async fn admin_login_ui(
+    Extension(state): Extension<Arc<AppState>>,
+    Extension(ck): Extension<Cookies>,
+) -> Result<Html<String>> {
     let handler_name = "admin_login_ui";
     let site_key = state.hcap_cfg.site_key.clone();
     let tmpl = LoginTemplate { site_key };
@@ -29,10 +32,11 @@ pub async fn admin_login(
     Extension(ck): Extension<Cookies>,
 ) -> Result<(StatusCode, HeaderMap, ())> {
     // 查看是否已经登录,如果已经登录则直接跳转到管理页面
-    let admin_session = get_login_admin_by_cookie(&state, &ck).await?;
-    if admin_session.is_some() {
-        debug!("已经登录,直接进管理页面.");
-        return redirect("/admin");
+    if let Ok(admin_session) = get_login_admin_by_cookie(&state, &ck).await {
+        if admin_session.is_some() {
+            debug!("已经登录,直接进管理页面.");
+            return redirect("/admin");
+        }
     }
 
     let handler_name = "auth_login";
@@ -97,7 +101,9 @@ pub async fn admin_logout(
     if let Some(val) = cookie {
         let redis_key = gen_redis_key(&cfg, &val);
         debug!("logout delete redis_key: {:?}", redis_key);
-        rdb::del(&state.rdc, &redis_key).await?;
+        rdb::del(&state.rdc, &redis_key).await.map_err(|e| {
+            error!("logout delete redis_key: {:?} failed: {:?}", redis_key, e);
+        });
     }
     let cookie_logout = format!("{}=", &cfg.id_name);
     redirect_with_cookie("/login", Some(&cookie_logout))

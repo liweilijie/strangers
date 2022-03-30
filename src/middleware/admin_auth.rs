@@ -24,7 +24,9 @@ where
         if let Some(_) = admin_session {
             Ok(Auth {})
         } else {
-            Err(AppError::auth_error("UNAUTHENTICATED"))
+            Err(AppError::auth_error(
+                "权限认证失败，请点击右上角重新登录页面!",
+            ))
         }
     }
 }
