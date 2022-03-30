@@ -43,3 +43,4 @@ target/
 /upload
 /tmp
 .DS_Store
+test_sleddb

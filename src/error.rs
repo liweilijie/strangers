@@ -21,6 +21,7 @@ pub enum AppErrorType {
     UploadError,
     ExcelError,
     CSVError,
+    SledError,
     ProtectedContentError,
     /// 通用错误
     Common,
@@ -153,6 +154,12 @@ impl From<calamine::Error> for AppError {
 impl From<csv::Error> for AppError {
     fn from(err: csv::Error) -> Self {
         Self::from_err(err, AppErrorType::CSVError)
+    }
+}
+
+impl From<sled::Error> for AppError {
+    fn from(err: sled::Error) -> Self {
+        Self::from_err(err, AppErrorType::SledError)
     }
 }
 
