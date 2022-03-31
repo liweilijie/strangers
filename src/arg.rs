@@ -7,7 +7,7 @@ pub struct MedicinalBackendQueryArg {
     pub msg: Option<String>,
     pub is_del: Option<bool>,
     pub expired: Option<u8>,
-    // pub order: Option<OrderKey>,
+    pub category: Option<String>, // 用于查询分类
 }
 
 impl MedicinalBackendQueryArg {
@@ -40,6 +40,13 @@ impl MedicinalBackendQueryArg {
         match &self.expired {
             Some(b) => *b,
             None => 0,
+        }
+    }
+
+    pub fn category(&self) -> &str {
+        match &self.category {
+            Some(s) => s,
+            None => "",
         }
     }
 

@@ -43,6 +43,19 @@ tower-cookies = "0.5.1"
 ```
 
 
+## postgres手动备份与恢复
+```bash
+# 先备份
+docker exec -u root -it postgres /bin/bash
+pg_dump -h localhost -p 5432 -U postgres -d dev_strangers -f /export_bak_stranger_2022_03_31.sql
+
+# 恢复到另外一张表
+psql -d dev_strangers -U postgres -h localhost -p 5432 -f /export_bak_stranger_2022_03_31.sql
+
+# 当然可以将文件 cp 出来
+docker cp postgres:/export_bak_stranger_2022_03_31.sql .
+```
+
 ## 参考的项目
 
 - [https://github.com/axumrs/todo.git](https://github.com/axumrs/todo.git)
@@ -52,3 +65,4 @@ tower-cookies = "0.5.1"
 - [postgres事务相关的接口](https://axum.rs/topic/todo-service/log-and-refactor)
 - [error处理](https://github.com/RustMagazine/rust_magazine_2021/blob/main/src/chapter_2/rust_error_handle_and_log.md)
 - [https://github.com/J-F-Liu/convert_encoding](https://github.com/J-F-Liu/convert_encoding)
+- [postgresq备份与恢复](https://zhuanlan.zhihu.com/p/97692526)

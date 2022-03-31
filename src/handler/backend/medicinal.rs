@@ -4,7 +4,7 @@ use crate::form::CreateMedicinal;
 use crate::handler::helper::{get_client, log_error, render};
 use crate::handler::redirect::redirect;
 use crate::html::backend::medicinal::{AddTemplate, EditTemplate, IndexTemplate, UploadTemplate};
-use crate::model::{AppState, MedicinalList};
+use crate::model::{get_expired_str, AppState, MedicinalList};
 use crate::{arg, form, Result};
 use axum::extract::{ContentLengthLimit, Extension, Form, Multipart, Path, Query};
 use axum::http::StatusCode;
@@ -30,10 +30,14 @@ pub async fn index(
     Extension(state): Extension<Arc<AppState>>,
     args: Option<Query<arg::MedicinalBackendQueryArg>>,
 ) -> Result<Html<String>> {
+    debug!("args: {:#?}", args);
     let handler_name = "backend_medicinal_index";
     let client = get_client(&state, handler_name).await?;
     let args = args.unwrap().0;
     let q_keyword = format!("%{}%", args.keyword());
+
+    // 处理category 查询
+    let q_category = format!("%{}%", args.category());
 
     let q_expired = args.expired();
     // 处理查询日期(月份)
@@ -69,20 +73,30 @@ pub async fn index(
 
     debug!("q_expired_result: {}", q_expired_result);
     // debug!("q_order_result: {}", q_order_result);
-    let condition = format!("is_del=$1 AND name LIKE $2 {}", q_expired_result);
+    let condition = format!(
+        "is_del=$1 AND name LIKE $2 AND category LIKE $3 {}",
+        q_expired_result
+    );
 
     let medicinal_list = medicinal::select(
         &client,
         // "is_del=$1 AND name LIKE $2",
         &condition,
-        &[&args.is_del(), &q_keyword],
+        &[&args.is_del(), &q_keyword, &q_category],
         args.page.unwrap_or(0),
     )
     .await
     .map_err(log_error(handler_name.to_string()))?;
+
+    let categories = medicinal::categories(&client)
+        .await
+        .map_err(log_error(handler_name.to_string()))?;
+
     let tmpl = IndexTemplate {
         arg: args,
         list: medicinal_list,
+        categories,
+        expired_items: get_expired_str(),
     };
     render(tmpl, handler_name)
 }
@@ -181,10 +195,11 @@ pub async fn upload_action(
         let filename = file.file_name().unwrap().to_string(); // 上传的文件名称
         let sc = PathBuf::from(filename.clone());
         match sc.extension().and_then(|s| s.to_str()) {
-            Some("csv") | Some("xlsx") | Some("xlsm") | Some("xlsb") | Some("xls") => (),
+            Some("csv") => (),
+            // Some("csv") | Some("xlsx") | Some("xlsm") | Some("xlsb") | Some("xls") => (),
             _ => {
                 return Err(AppError::from_str(
-                    "上传文件格式错误(建议上传csv格式)",
+                    "上传文件格式错误(建议将文件另存为csv,上传csv格式)",
                     AppErrorType::UploadError,
                 ))
             }
@@ -220,10 +235,16 @@ pub async fn upload_action(
                 AppError::from_err(err, AppErrorType::UploadError)
             })?,
             // 如果是excel文件,则读取 excel内容
-            _ => load_excel_file(&to_path).await.map_err(|err| {
-                error!("{} 文件内容读取失败, error: {:?}", &to_path, err);
-                AppError::from_err(err, AppErrorType::UploadError)
-            })?,
+            // _ => load_excel_file(&to_path).await.map_err(|err| {
+            //     error!("{} 文件内容读取失败, error: {:?}", &to_path, err);
+            //     AppError::from_err(err, AppErrorType::UploadError)
+            // })?,
+            _ => {
+                return Err(AppError::from_str(
+                    "上传文件格式错误(建议将文件另存为csv,上传csv格式)",
+                    AppErrorType::UploadError,
+                ))
+            }
         };
 
         debug!("读取文件条数: {}", result.len());
@@ -260,189 +281,6 @@ pub async fn upload_action(
     }
 }
 
-async fn load_excel_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)> {
-    // 判断文件类型是否合法
-    let sce = PathBuf::from(file);
-    // TODO:
-    match sce.extension().and_then(|s| s.to_str()) {
-        Some("xlsx") | Some("xlsm") | Some("xlsb") | Some("xls") => (),
-        _ => {
-            return Err(AppError::from_str(
-                "excel文件格式错误",
-                AppErrorType::UploadError,
-            ))
-        }
-    }
-    // let mut excel: Xlsx<_> = open_workbook(file)?;
-    let mut excel = open_workbook_auto(file)?;
-    let mut category: Option<String> = None;
-    let name_keys = vec!["药品", "名称", "药名", "项目", "型号"];
-    let validity_keys = vec!["有效期", "有效期至", "效期", "有效"];
-    let count_keys = vec!["数量", "基数", "数"];
-    let batch_number_keys = vec!["批号", "生产日期", "生产"];
-
-    let mut name_index: Option<usize> = None;
-    let mut count_index: Option<usize> = None;
-    let mut validity_index: Option<usize> = None;
-    let mut batch_number_index: Option<usize> = None;
-    let mut index_ok = false;
-    let mut result_content: Vec<CreateMedicinal> = vec![];
-    let mut success_count: u32 = 0;
-    let mut total_count: u32 = 0;
-
-    if let Some(Ok(r)) = excel.worksheet_range("Sheet1") {
-        for row in r.rows() {
-            total_count += 1;
-            // debug!("row: {:#?}", row);
-            // 最正常的情况下有四列，第一列是药品名称， 第二列是批号，第三列是数量，第四列是有效期 当然顺序还可能不一样，所以要处理顺序
-            // 说明有批号
-            // 查找 category
-            // 至少需要2列才正常, 一列是名字，一列是有效期
-            if row.len() < 2 {
-                error!("excel column too small row.len < 2");
-                continue;
-            }
-
-            if category.is_none() {
-                // 判断是否是第一行为类目
-                // 所有数据其他都为 Empty, 只有一个值是 String 类型的则为category
-                if row[0].is_string() {
-                    let mut other_is_empty = true;
-                    for (index, val) in row.iter().enumerate() {
-                        if index == 0 {
-                            continue;
-                        } else {
-                            if !val.is_empty() {
-                                other_is_empty = false;
-                            }
-                        }
-                    }
-                    if other_is_empty {
-                        category = Some(row[0].to_string().trim().to_string());
-                        debug!("category: {:?}", category);
-                        total_count -= 1;
-                        continue;
-                    }
-                }
-            }
-
-            // 查找标题index
-            if !index_ok {
-                debug!("row: {:#?}", row);
-                name_index = row.iter().position(|x| {
-                    // 在 x 之中查找是否包含name_keys所有的关键字其中某一个
-                    name_keys
-                        .iter()
-                        .any(|key| x.is_string() && remove_whitespace(&x.to_string()).contains(key))
-                });
-                validity_index = row.iter().position(|x| {
-                    validity_keys
-                        .iter()
-                        .any(|key| x.is_string() && remove_whitespace(&x.to_string()).contains(key))
-                });
-                count_index = row.iter().position(|x| {
-                    count_keys
-                        .iter()
-                        .any(|key| x.is_string() && remove_whitespace(&x.to_string()).contains(key))
-                });
-                batch_number_index = row.iter().position(|x| {
-                    batch_number_keys
-                        .iter()
-                        .any(|key| x.is_string() && remove_whitespace(&x.to_string()).contains(key))
-                });
-
-                debug!(
-                    "name_index: {:?}, validity_index: {:?}, count_ndex: {:?}, batch_number_index: {:?}",
-                    name_index, validity_index, count_index, batch_number_index
-                );
-
-                if name_index.is_some()
-                    && validity_index.is_some()
-                    && name_index.unwrap() != validity_index.unwrap()
-                {
-                    index_ok = true;
-                    total_count -= 1;
-                }
-                continue;
-            }
-
-            // 获取数据
-            if index_ok {
-                let name = {
-                    if row[name_index.unwrap()].is_string() {
-                        row[name_index.unwrap()].to_string().trim().to_string()
-                    } else {
-                        "".to_string()
-                    }
-                };
-                if name == "" {
-                    warn!("skip because of name is empty: {:?}", row);
-                    continue;
-                }
-
-                let validity = row[validity_index.unwrap()].as_datetime();
-                if validity.is_none() {
-                    warn!("skip because of validity is empty: {:?}", row);
-                    continue;
-                }
-                let validity = validity.unwrap().date(); // 只需要日期不需要时间
-
-                let count = if count_index.is_some() {
-                    row[count_index.unwrap()].to_string().trim().to_string()
-                } else {
-                    "Empty".to_string()
-                };
-
-                let batch_number = if batch_number_index.is_some() {
-                    row[batch_number_index.unwrap()]
-                        .to_string()
-                        .trim()
-                        .to_string()
-                } else {
-                    "Empty".to_string()
-                };
-
-                // count 和 batch_number 都可以为空
-
-                debug!(
-                    "name: {}, count: {}, validity: {:?}, batch_number: {}",
-                    name, count, validity, batch_number
-                );
-
-                let batch_number = {
-                    if batch_number == "" {
-                        "Empty".to_string()
-                    } else {
-                        batch_number
-                    }
-                };
-
-                let count = {
-                    if count == "" {
-                        "Empty".to_string()
-                    } else {
-                        count
-                    }
-                };
-
-                let medicinal = CreateMedicinal {
-                    name,
-                    count,
-                    validity,
-                    batch_number,
-                    category: category.clone().unwrap_or("Empty".to_string()),
-                };
-                debug!("medicinal: {:#?}", medicinal);
-                success_count += 1;
-                result_content.push(medicinal);
-            }
-        }
-        // 另外还有一种情况是没有批号，那么就没有批号字段，所以这里要单独处理一下
-    }
-
-    Ok((result_content, total_count, success_count))
-}
-
 fn remove_whitespace(s: &str) -> String {
     s.chars().filter(|c| !c.is_whitespace()).collect()
 }
@@ -467,12 +305,14 @@ async fn load_csv_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)> {
     let validity_keys = vec!["有效期", "有效期至", "效期", "有效"];
     let count_keys = vec!["数量", "基数", "数"];
     let batch_number_keys = vec!["批号", "生产日期", "生产"];
+    let spec_keys = vec!["规格"];
     let skip_keys = vec!["签名"]; // 如果有内容包含签名的，则不进行处理与判断
 
     let mut name_index: Option<usize> = None;
     let mut count_index: Option<usize> = None;
     let mut validity_index: Option<usize> = None;
     let mut batch_number_index: Option<usize> = None;
+    let mut spec_index: Option<usize> = None;
     let mut index_ok = false;
     let mut result_content: Vec<CreateMedicinal> = vec![];
     let mut success_count: u32 = 0;
@@ -508,6 +348,7 @@ async fn load_csv_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)> {
 
         // any() 短路; 换句话说，它一旦找到 true 就会停止处理，因为无论发生什么，结果也将是 true。
         // 如果任意一行有如下内容的则返回不计算
+        // 所有字段都是空白的，则直接跳过
         if row.iter().any(|x| {
             skip_keys
                 .iter()
@@ -536,7 +377,7 @@ async fn load_csv_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)> {
                 if other_is_empty {
                     category = Some(row[0].to_string().trim().to_string());
                     debug!("category: {:?}", category);
-                    total_count -= 1;
+                    total_count -= 1; // 不算在总数里面
                     continue;
                 }
             }
@@ -567,9 +408,15 @@ async fn load_csv_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)> {
                     .any(|key| !x.is_empty() && remove_whitespace(&x.to_string()).contains(key))
             });
 
+            spec_index = row.iter().position(|x| {
+                spec_keys
+                    .iter()
+                    .any(|key| !x.is_empty() && remove_whitespace(&x.to_string()).contains(key))
+            });
+
             debug!(
-                    "name_index: {:?}, validity_index: {:?}, count_ndex: {:?}, batch_number_index: {:?}",
-                    name_index, validity_index, count_index, batch_number_index
+                    "name_index: {:?}, validity_index: {:?}, count_ndex: {:?}, batch_number_index: {:?}, spec_index:{:?}",
+                    name_index, validity_index, count_index, batch_number_index, spec_index,
                 );
 
             if name_index.is_some()
@@ -577,7 +424,7 @@ async fn load_csv_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)> {
                 && name_index.unwrap() != validity_index.unwrap()
             {
                 index_ok = true;
-                total_count -= 1;
+                total_count -= 1; // 不算在总数里面
             }
             continue;
         }
@@ -630,11 +477,17 @@ async fn load_csv_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)> {
                 "Empty".to_string()
             };
 
+            let spec = if spec_index.is_some() {
+                row[spec_index.unwrap()].to_string().trim().to_string()
+            } else {
+                "Empty".to_string()
+            };
+
             // count 和 batch_number 都可以为空
 
             debug!(
-                "name: {}, count: {}, validity: {:?}, batch_number: {}",
-                name, count, validity, batch_number
+                "name: {}, count: {}, validity: {:?}, batch_number: {}, spec: {}",
+                name, count, validity, batch_number, spec
             );
 
             let batch_number = {
@@ -662,6 +515,7 @@ async fn load_csv_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)> {
                     validity.day(),
                 ),
                 batch_number,
+                spec,
                 category: category.clone().unwrap_or("Empty".to_string()),
             };
             debug!("medicinal: {:#?}", medicinal);
@@ -716,7 +570,7 @@ mod tests {
         tracing_subscriber::fmt::init();
         // let file = "./upload/dd.xlsx";
         let file = "./upload/up.xls";
-        load_excel_file(file).await.unwrap();
+        // load_excel_file(file).await.unwrap();
     }
 
     #[tokio::test]
@@ -799,3 +653,186 @@ mod tests {
         });
     }
 }
+
+// async fn load_excel_file(file: &str) -> Result<(Vec<CreateMedicinal>, u32, u32)> {
+//     // 判断文件类型是否合法
+//     let sce = PathBuf::from(file);
+//     // TODO:
+//     match sce.extension().and_then(|s| s.to_str()) {
+//         Some("xlsx") | Some("xlsm") | Some("xlsb") | Some("xls") => (),
+//         _ => {
+//             return Err(AppError::from_str(
+//                 "excel文件格式错误",
+//                 AppErrorType::UploadError,
+//             ))
+//         }
+//     }
+//     // let mut excel: Xlsx<_> = open_workbook(file)?;
+//     let mut excel = open_workbook_auto(file)?;
+//     let mut category: Option<String> = None;
+//     let name_keys = vec!["药品", "名称", "药名", "项目", "型号"];
+//     let validity_keys = vec!["有效期", "有效期至", "效期", "有效"];
+//     let count_keys = vec!["数量", "基数", "数"];
+//     let batch_number_keys = vec!["批号", "生产日期", "生产"];
+//
+//     let mut name_index: Option<usize> = None;
+//     let mut count_index: Option<usize> = None;
+//     let mut validity_index: Option<usize> = None;
+//     let mut batch_number_index: Option<usize> = None;
+//     let mut index_ok = false;
+//     let mut result_content: Vec<CreateMedicinal> = vec![];
+//     let mut success_count: u32 = 0;
+//     let mut total_count: u32 = 0;
+//
+//     if let Some(Ok(r)) = excel.worksheet_range("Sheet1") {
+//         for row in r.rows() {
+//             total_count += 1;
+//             // debug!("row: {:#?}", row);
+//             // 最正常的情况下有四列，第一列是药品名称， 第二列是批号，第三列是数量，第四列是有效期 当然顺序还可能不一样，所以要处理顺序
+//             // 说明有批号
+//             // 查找 category
+//             // 至少需要2列才正常, 一列是名字，一列是有效期
+//             if row.len() < 2 {
+//                 error!("excel column too small row.len < 2");
+//                 continue;
+//             }
+//
+//             if category.is_none() {
+//                 // 判断是否是第一行为类目
+//                 // 所有数据其他都为 Empty, 只有一个值是 String 类型的则为category
+//                 if row[0].is_string() {
+//                     let mut other_is_empty = true;
+//                     for (index, val) in row.iter().enumerate() {
+//                         if index == 0 {
+//                             continue;
+//                         } else {
+//                             if !val.is_empty() {
+//                                 other_is_empty = false;
+//                             }
+//                         }
+//                     }
+//                     if other_is_empty {
+//                         category = Some(row[0].to_string().trim().to_string());
+//                         debug!("category: {:?}", category);
+//                         total_count -= 1;
+//                         continue;
+//                     }
+//                 }
+//             }
+//
+//             // 查找标题index
+//             if !index_ok {
+//                 debug!("row: {:#?}", row);
+//                 name_index = row.iter().position(|x| {
+//                     // 在 x 之中查找是否包含name_keys所有的关键字其中某一个
+//                     name_keys
+//                         .iter()
+//                         .any(|key| x.is_string() && remove_whitespace(&x.to_string()).contains(key))
+//                 });
+//                 validity_index = row.iter().position(|x| {
+//                     validity_keys
+//                         .iter()
+//                         .any(|key| x.is_string() && remove_whitespace(&x.to_string()).contains(key))
+//                 });
+//                 count_index = row.iter().position(|x| {
+//                     count_keys
+//                         .iter()
+//                         .any(|key| x.is_string() && remove_whitespace(&x.to_string()).contains(key))
+//                 });
+//                 batch_number_index = row.iter().position(|x| {
+//                     batch_number_keys
+//                         .iter()
+//                         .any(|key| x.is_string() && remove_whitespace(&x.to_string()).contains(key))
+//                 });
+//
+//                 debug!(
+//                     "name_index: {:?}, validity_index: {:?}, count_ndex: {:?}, batch_number_index: {:?}",
+//                     name_index, validity_index, count_index, batch_number_index
+//                 );
+//
+//                 if name_index.is_some()
+//                     && validity_index.is_some()
+//                     && name_index.unwrap() != validity_index.unwrap()
+//                 {
+//                     index_ok = true;
+//                     total_count -= 1;
+//                 }
+//                 continue;
+//             }
+//
+//             // 获取数据
+//             if index_ok {
+//                 let name = {
+//                     if row[name_index.unwrap()].is_string() {
+//                         row[name_index.unwrap()].to_string().trim().to_string()
+//                     } else {
+//                         "".to_string()
+//                     }
+//                 };
+//                 if name == "" {
+//                     warn!("skip because of name is empty: {:?}", row);
+//                     continue;
+//                 }
+//
+//                 let validity = row[validity_index.unwrap()].as_datetime();
+//                 if validity.is_none() {
+//                     warn!("skip because of validity is empty: {:?}", row);
+//                     continue;
+//                 }
+//                 let validity = validity.unwrap().date(); // 只需要日期不需要时间
+//
+//                 let count = if count_index.is_some() {
+//                     row[count_index.unwrap()].to_string().trim().to_string()
+//                 } else {
+//                     "Empty".to_string()
+//                 };
+//
+//                 let batch_number = if batch_number_index.is_some() {
+//                     row[batch_number_index.unwrap()]
+//                         .to_string()
+//                         .trim()
+//                         .to_string()
+//                 } else {
+//                     "Empty".to_string()
+//                 };
+//
+//                 // count 和 batch_number 都可以为空
+//
+//                 debug!(
+//                     "name: {}, count: {}, validity: {:?}, batch_number: {}",
+//                     name, count, validity, batch_number
+//                 );
+//
+//                 let batch_number = {
+//                     if batch_number == "" {
+//                         "Empty".to_string()
+//                     } else {
+//                         batch_number
+//                     }
+//                 };
+//
+//                 let count = {
+//                     if count == "" {
+//                         "Empty".to_string()
+//                     } else {
+//                         count
+//                     }
+//                 };
+//
+//                 let medicinal = CreateMedicinal {
+//                     name,
+//                     count,
+//                     validity,
+//                     batch_number,
+//                     category: category.clone().unwrap_or("Empty".to_string()),
+//                 };
+//                 debug!("medicinal: {:#?}", medicinal);
+//                 success_count += 1;
+//                 result_content.push(medicinal);
+//             }
+//         }
+//         // 另外还有一种情况是没有批号，那么就没有批号字段，所以这里要单独处理一下
+//     }
+//
+//     Ok((result_content, total_count, success_count))
+// }

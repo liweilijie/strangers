@@ -10,7 +10,7 @@ use tokio_pg_mapper::FromTokioPostgresRow;
 use tokio_postgres::types::ToSql;
 use tokio_postgres::{GenericClient, Statement};
 
-/// 默认分布大小
+/// 默认分页大小
 const PAGE_SIZE: u8 = 30;
 
 /// 获取[`Statement`] 对象

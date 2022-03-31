@@ -9,6 +9,7 @@
             <th>药品名称</th>
             <th>药品类目</th>
             <th>药品批号</th>
+            <th>规格</th>
             <th>药品数量</th>
             <th>有效期</th>
             <th>状态</th>
@@ -16,17 +17,39 @@
         </tr>
     </thead>
     {% for row in list.data %}
+    {% if row.is_expired() %}
+    <tr class="table-dark">
+        {% elseif row.is_expired_as1() %}
+    <tr class="table-info">
+    {% elseif row.is_expired_as3() %}
+    <tr class="table-danger">
+    {% elseif row.is_expired_as6() %}
+    <tr class="table-warning">
+        {% else %}
     <tr>
+        {% endif %}
+
         <td> {{ row.name }}</td>
         <td> {{ row.category }}</td>
         <td> {{ row.batch_number }}</td>
+        <td> {{ row.spec}}</td>
         <td> {{ row.count }}</td>
         <td> {{ row.validity }}</td>
         <td>
             {% if row.is_del %}
-            <span class="badge badge-danger">已删除</span>
+            <span class="badge badge-dark">已删除</span>
             {% else %}
-            <span class="badge badge-success">正常</span>
+                {% if row.is_expired() %}
+                <span class="badge badge-dark">已过期</span>
+                {% elseif row.is_expired_as1() %}
+                <span class="badge badge-info">即将(1个月)过期</span>
+            {% elseif row.is_expired_as3() %}
+            <span class="badge badge-danger">即将(3个月)过期</span>
+            {% elseif row.is_expired_as6() %}
+            <span class="badge badge-warning">即将(6个月)过期</span>
+            {%else%}
+                <span class="badge badge-success">正常</span>
+                {% endif %}
             {% endif %}
         </td>
         <td>
@@ -55,11 +78,11 @@
             </button>
             <div class="dropdown-menu dropdown-menu-sm">
                 {% if arg.is_del() %}
-                <a class="dropdown-item dropdown-item-sm" href="?is_del=false&expired={{arg.expired()}}">未删除</a>
-                <a class="dropdown-item dropdown-item-sm active" href="?is_del=true&expired={{arg.expired()}}">已删除</a>
+                <a class="dropdown-item dropdown-item-sm" href="?is_del=false&expired={{arg.expired()}}&category={{arg.category()}}">未删除</a>
+                <a class="dropdown-item dropdown-item-sm active" href="?is_del=true&expired={{arg.expired()}}&category={{arg.category()}}">已删除</a>
                 {%else%}
-                <a class="dropdown-item dropdown-item-sm active" href="?is_del=false&expired={{arg.expired()}}">未删除</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del=true&expired={{arg.expired()}}">已删除</a>
+                <a class="dropdown-item dropdown-item-sm active" href="?is_del=false&expired={{arg.expired()}}&category={{arg.category()}}">未删除</a>
+                <a class="dropdown-item dropdown-item-sm" href="?is_del=true&expired={{arg.expired()}}&category={{arg.category()}}">已删除</a>
                 {%endif%}
             </div>
         </div>
@@ -68,37 +91,34 @@
                 <i class="fa fa-filter"></i> 过期查询
             </button>
             <div class="dropdown-menu dropdown-menu-sm">
-                {% if arg.expired() == 0 %}
-                <a class="dropdown-item dropdown-item-sm active" href="?is_del={{arg.is_del()}}&expired=0">所有数据</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=1">已经过期</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=2">一个月</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=4">三个月</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=7">六个月</a>
-                {%elseif arg.expired() == 1 %}
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=0">所有数据</a>
-                <a class="dropdown-item dropdown-item-sm active" href="?is_del={{arg.is_del()}}&expired=1">已经过期</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=2">一个月</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=4">三个月</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=7">六个月</a>
-                {%elseif arg.expired() == 2 %}
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=0">所有数据</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=1">已经过期</a>
-                <a class="dropdown-item dropdown-item-sm active" href="?is_del={{arg.is_del()}}&expired=2">一个月</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=4">三个月</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=7">六个月</a>
-                {%elseif arg.expired() == 4 %}
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=0">所有数据</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=1">已经过期</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=2">一个月</a>
-                <a class="dropdown-item dropdown-item-sm active" href="?is_del={{arg.is_del()}}&expired=4">三个月</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=7">六个月</a>
-                {%elseif arg.expired() == 7 %}
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=0">所有数据</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=1">已经过期</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=2">一个月</a>
-                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired=4">三个月</a>
-                <a class="dropdown-item dropdown-item-sm active" href="?is_del={{arg.is_del()}}&expired=7">六个月</a>
+                {% for row in expired_items %}
+                {% if arg.expired() == row.id %}
+                <a class="dropdown-item dropdown-item-sm active" href="?is_del={{arg.is_del()}}&expired={{row.id}}&category={{arg.category()}}">{{row.name}}</a>
+                {%else%}
+                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired={{row.id}}&category={{arg.category()}}">{{row.name}}</a>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        <!--        // 按类目查询-->
+        <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-default dropdown-toggle dropdown-icon btn-sm" data-toggle="dropdown">
+                <i class="fa fa-filter"></i>药箱查询
+            </button>
+            <div class="dropdown-menu dropdown-menu-sm">
+                {% if arg.category() == "" %}
+                <a class="dropdown-item dropdown-item-sm active" href="?is_del={{arg.is_del()}}&expired={{arg.expired()}}">所有数据</a>
+                {%else%}
+                <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired={{arg.expired()}}">所有数据</a>
                 {%endif%}
+
+                {% for row in categories %}
+                    {% if arg.category() == row.category %}
+                    <a class="dropdown-item dropdown-item-sm active" href="?is_del={{arg.is_del()}}&expired={{arg.expired()}}&category={{row.category}}">{{row.category}}</a>
+                    {%else%}
+                    <a class="dropdown-item dropdown-item-sm" href="?is_del={{arg.is_del()}}&expired={{arg.expired()}}&category={{row.category}}">{{row.category}}</a>
+                    {%endif%}
+                {% endfor %}
             </div>
         </div>
     </div>

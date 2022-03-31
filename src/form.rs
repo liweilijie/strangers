@@ -12,6 +12,7 @@ pub struct CreateMedicinal {
     pub name: String,
     pub category: String,
     pub batch_number: String,
+    pub spec: String,
     pub count: String,
     pub validity: chrono::NaiveDate,
 }
@@ -22,6 +23,7 @@ pub struct UpdateMedicinal {
     pub name: String,
     pub category: String,
     pub batch_number: String,
+    pub spec: String,
     pub count: String,
     pub validity: chrono::NaiveDate,
 }

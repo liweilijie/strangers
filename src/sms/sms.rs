@@ -3,13 +3,14 @@ use crate::handler::helper::get_client;
 use crate::model::{AppState, MedicinalList};
 use crate::sms::send::NotifySms;
 use crate::Result;
+use chrono::Timelike;
 use std::sync::Arc;
 use tokio::time;
 use tokio::time::{Duration, Instant};
 use tokio_postgres::Client;
 use tracing::{debug, error, warn};
 
-const EXPIRED_DAYS: i64 = 30;
+pub const EXPIRED_DAYS: i64 = 30;
 const INTERVAL_SECONDS: u64 = 1200;
 const INTERVAL_SCHEDULE_SECONDS: u64 = 120;
 
@@ -127,7 +128,15 @@ pub async fn sms_schedule(state: Arc<AppState>, notify_state: Arc<NotifySms>) {
     // let mut intv = time::interval_at(start, interval);
     let mut intv = time::interval_at(start, Duration::from_secs(INTERVAL_SCHEDULE_SECONDS));
     loop {
-        let _ = do_work(state.clone(), notify_state.clone()).await;
+        // 如果时间在[8-18]点这个区间，则不进行报警，以免影响休息
+        if chrono::Local::now().hour() >= 18 || chrono::Local::now().hour() < 8 {
+            debug!(
+                "now:{} is holiday time, so do sleep",
+                chrono::Local::now().hour()
+            );
+        } else {
+            let _ = do_work(state.clone(), notify_state.clone()).await;
+        }
         intv.tick().await;
     }
 }

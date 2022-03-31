@@ -12,7 +12,7 @@ impl RedisDB {
         RedisDB(client)
     }
 
-    pub fn get_conn(&self) -> Result<Connection> {
+    pub async fn get_conn(&self) -> Result<Connection> {
         self.0.get_async_connection().await.map_err(AppError::from)
     }
 }

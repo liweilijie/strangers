@@ -12,6 +12,7 @@ CREATE TABLE "medicinal" (
                              "category" varchar NOT NULL,
                              "name" varchar NOT NULL,
                              "batch_number" varchar,
+                             "spec" varchar,
                              "count" varchar,
                              "validity" date NOT NULL,
                              is_del BOOLEAN NOT NULL DEFAULT FALSE,
@@ -38,3 +39,8 @@ insert into medicinal(category, name, batch_number, count, validity) values('测
 select * from medicinal where is_del = false and validity <= '2022-03-29' and notify_at <= '2022-03-29 11:37:00';
 
 update medicinal set notify_at = '2022-03-28 10:47:27' where id = 2;
+
+alter table medicinal ADD spec varchar;
+alter table medicinal ADD spec varchar default 'Empty' not null;
+
+

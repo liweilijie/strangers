@@ -3,7 +3,7 @@ use crate::db::select_stmt::SelectStmt;
 use crate::db::{execute, PAGE_SIZE};
 use crate::error::{AppError, AppErrorType};
 use crate::form::{CreateMedicinal, UpdateMedicinal};
-use crate::model::{MedicinalID, MedicinalList};
+use crate::model::{Category, MedicinalID, MedicinalList};
 use crate::Result;
 use chrono::Local;
 use std::str::FromStr;
@@ -31,7 +31,7 @@ pub async fn select(
 ) -> Result<Pagination<Vec<MedicinalList>>> {
     let sql = SelectStmt::builder()
         .table(TABLE_NAME)
-        .fields("id, category, name, batch_number, count, validity, is_del")
+        .fields("id, category, name, batch_number, spec, count, validity, is_del")
         .condition(Some(condition))
         .order(Some("validity ASC"))
         .limit(Some(PAGE_SIZE))
@@ -61,7 +61,7 @@ pub async fn find(
 ) -> Result<MedicinalList> {
     let sql = SelectStmt::builder()
         .table(TABLE_NAME)
-        .fields("id, category, name, batch_number, count, validity, is_del")
+        .fields("id, category, name, batch_number, spec, count, validity, is_del")
         .condition(condition)
         .limit(Some(1))
         .build();
@@ -101,7 +101,7 @@ pub async fn create(client: &Client, medicinal: &CreateMedicinal) -> Result<Medi
     //     })?;
     // debug!("medicinal create: {:?}", validity);
 
-    let sql = "INSERT INTO medicinal (category, name, batch_number, count, validity) VALUES ($1, $2, $3, $4, $5) RETURNING id";
+    let sql = "INSERT INTO medicinal (category, name, batch_number, spec, count, validity) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id";
     debug!("medicinal create sql: {}", sql);
     Ok(super::query_one(
         client,
@@ -110,6 +110,7 @@ pub async fn create(client: &Client, medicinal: &CreateMedicinal) -> Result<Medi
             &medicinal.category,
             &medicinal.name,
             &medicinal.batch_number,
+            &medicinal.spec,
             &medicinal.count,
             &medicinal.validity,
         ],
@@ -240,8 +241,8 @@ pub async fn update(client: &Client, med: &UpdateMedicinal) -> Result<bool> {
     // 直接更新
     let result = execute(
         client,
-        "UPDATE medicinal set name=$1, category=$2, batch_number=$3, count=$4, validity=$5 WHERE id=$6",
-        &[&med.name, &med.category, &med.batch_number, &med.count, &med.validity, &med.id],
+        "UPDATE medicinal set name=$1, category=$2, batch_number=$3, spec=$4, count=$5, validity=$6 WHERE id=$7",
+        &[&med.name, &med.category, &med.batch_number, &med.spec, &med.count, &med.validity, &med.id],
     )
         .await?;
 
@@ -277,10 +278,20 @@ pub async fn all(
 ) -> Result<Vec<MedicinalList>> {
     let sql = SelectStmt::builder()
         .table(TABLE_NAME)
-        .fields("id, category, name, batch_number, count, validity, is_del")
+        .fields("id, category, name, batch_number, spec, count, validity, is_del")
         .order(Some("validity ASC"))
         .condition(Some(condition))
         .build();
     debug!("medicinal all sql: {}", sql);
     Ok(super::query(client, &sql, args).await?)
+}
+
+/// 查询所有分类数据
+pub async fn categories(client: &Client) -> Result<Vec<Category>> {
+    let sql = SelectStmt::builder()
+        .table(TABLE_NAME)
+        .fields("distinct(category)")
+        .build();
+    debug!("categories sql: {}", sql);
+    Ok(super::query(client, &sql, &[]).await?)
 }
