@@ -28,6 +28,7 @@ pub fn routers() -> Router {
             "/medicinal/upload",
             get(medicinal::upload).post(medicinal::upload_action),
         ) // 批量上传药品
+        .route("/medicinal/download", get(medicinal::download))
         .route("/medicinal/del/:id", get(medicinal::del)) // 删除药品
         .route("/medicinal/recover/:id", get(medicinal::recover)) // 恢复药品
         .route("/admin", get(admin::index))

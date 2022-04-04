@@ -6,9 +6,10 @@ use crate::handler::redirect::redirect;
 use crate::html::backend::medicinal::{AddTemplate, EditTemplate, IndexTemplate, UploadTemplate};
 use crate::model::{get_expired_str, AppState, MedicinalList};
 use crate::{arg, form, Result};
+use axum::body::StreamBody;
 use axum::extract::{ContentLengthLimit, Extension, Form, Multipart, Path, Query};
-use axum::http::StatusCode;
-use axum::response::Html;
+use axum::http::{header, StatusCode};
+use axum::response::{Headers, Html};
 use calamine::DataType::Empty;
 use calamine::{open_workbook, open_workbook_auto, Reader, Xls, Xlsx};
 use chrono::{Datelike, Local};
@@ -19,12 +20,55 @@ use reqwest::header::HeaderMap;
 use std::fmt::format;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio_util::io::ReaderStream;
+
 use tracing::field::debug;
 use tracing::{debug, error, info, warn};
 
 /// 允许上传的文件大小
 const MAX_UPLOAD_SIZE: u64 = 1024 * 1024 * 256; // 256 MB
 const DEFAULT_VALIDITY_DATE: &str = "2099-12-31";
+
+pub async fn download(
+    Extension(state): Extension<Arc<AppState>>,
+    args: Option<Query<arg::MedicinalBackendQueryArg>>,
+) -> Result<(StatusCode, HeaderMap, ())> {
+    let handler_name = "download";
+    let client = get_client(&state, handler_name).await?;
+
+    let result = medicinal::all(&client, &format!("is_del=false"), &[])
+        .await
+        .map_err(log_error(handler_name.to_string()))?;
+    // convert the `AsyncRead` into a `Stream`
+    let stream = ReaderStream::new(&result);
+    // convert the `Stream` into an `axum::body::HttpBody`
+    let body = StreamBody::new(stream);
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::CONTENT_TYPE,
+        "text/toml; charset=utf-8".parse().unwrap(),
+    );
+    headers.insert(
+        header::CONTENT_DISPOSITION,
+        "attachment; filename=medicinal.toml".parse().unwrap(),
+    );
+    headers.insert(
+        header::LOCATION,
+        "/admin/medicinal?msg=导出成功!".parse().unwrap(),
+    );
+
+    // let headers = Headers([
+    //     (header::CONTENT_TYPE, "text/toml; charset=utf-8"),
+    //     (
+    //         header::CONTENT_DISPOSITION,
+    //         "attachment; filename=\"Cargo.toml\"",
+    //     ),
+    //     (header::LOCATION, "/admin/medicinal?msg=导出成功!"),
+    // ]);
+
+    Ok((StatusCode::FOUND, headers, ()))
+}
 
 pub async fn index(
     Extension(state): Extension<Arc<AppState>>,
