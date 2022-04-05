@@ -1,4 +1,5 @@
 pub mod admin;
+pub mod excel;
 pub mod index;
 pub mod medicinal;
 

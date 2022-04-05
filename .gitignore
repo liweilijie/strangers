@@ -44,3 +44,4 @@ target/
 /tmp
 .DS_Store
 test_sleddb
+*.xlsx

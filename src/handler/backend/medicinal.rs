@@ -9,19 +9,21 @@ use crate::{arg, form, Result};
 use axum::body::StreamBody;
 use axum::extract::{ContentLengthLimit, Extension, Form, Multipart, Path, Query};
 use axum::http::{header, StatusCode};
-use axum::response::{Headers, Html};
+use axum::response::{Headers, Html, IntoResponse};
 use calamine::DataType::Empty;
-use calamine::{open_workbook, open_workbook_auto, Reader, Xls, Xlsx};
+use calamine::{open_workbook, open_workbook_auto, Xls, Xlsx};
 use chrono::{Datelike, Local};
 use csv::StringRecord;
 use dateparser::DateTimeUtc;
 use encoding_rs::{Encoder, Encoding, GBK, UTF_8};
-use reqwest::header::HeaderMap;
+use reqwest::header::{HeaderMap, HeaderName};
 use std::fmt::format;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::fs::File;
 use tokio_util::io::ReaderStream;
 
+use crate::handler::backend::excel;
 use tracing::field::debug;
 use tracing::{debug, error, info, warn};
 
@@ -32,15 +34,22 @@ const DEFAULT_VALIDITY_DATE: &str = "2099-12-31";
 pub async fn download(
     Extension(state): Extension<Arc<AppState>>,
     args: Option<Query<arg::MedicinalBackendQueryArg>>,
-) -> Result<(StatusCode, HeaderMap, ())> {
+) -> Result<(HeaderMap, StreamBody<ReaderStream<File>>)> {
     let handler_name = "download";
     let client = get_client(&state, handler_name).await?;
 
     let result = medicinal::all(&client, &format!("is_del=false"), &[])
         .await
         .map_err(log_error(handler_name.to_string()))?;
+    let file_name =
+        excel::create_xlsx_for_medicinal(&result).map_err(log_error(handler_name.to_string()))?;
+
+    let file = tokio::fs::File::open(&file_name)
+        .await
+        .map_err(|e| AppError::from_err(e, AppErrorType::ExcelError))?;
+
     // convert the `AsyncRead` into a `Stream`
-    let stream = ReaderStream::new(&result);
+    let stream = ReaderStream::new(file);
     // convert the `Stream` into an `axum::body::HttpBody`
     let body = StreamBody::new(stream);
 
@@ -51,23 +60,31 @@ pub async fn download(
     );
     headers.insert(
         header::CONTENT_DISPOSITION,
-        "attachment; filename=medicinal.toml".parse().unwrap(),
+        format!("attachment; filename={}", &file_name)
+            .parse()
+            .unwrap(),
     );
     headers.insert(
         header::LOCATION,
-        "/admin/medicinal?msg=导出成功!".parse().unwrap(),
+        format!("/admin/medicinal?msg={}导出成功!", &file_name)
+            .parse()
+            .unwrap(),
     );
 
-    // let headers = Headers([
+    // let headers: Headers<[(HeaderName, &str); 3]> = Headers([
     //     (header::CONTENT_TYPE, "text/toml; charset=utf-8"),
     //     (
     //         header::CONTENT_DISPOSITION,
-    //         "attachment; filename=\"Cargo.toml\"",
+    //         &format!("attachment; filename=\"{}\"", &file_name),
     //     ),
-    //     (header::LOCATION, "/admin/medicinal?msg=导出成功!"),
+    //     (
+    //         header::LOCATION,
+    //         &format!("/admin/medicinal?msg={}导出成功!", &file_name),
+    //     ),
     // ]);
 
-    Ok((StatusCode::FOUND, headers, ()))
+    // std::result::Result::Ok((headers, body))
+    Ok((headers, body))
 }
 
 pub async fn index(
